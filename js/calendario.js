@@ -109,14 +109,35 @@ async function cargarCalendario() {
   try {
     await asegurarVencimientosDelPeriodoVigente();
 
-    const { data, error } = await supabaseCalendario
-      .from('calendario_vencimientos')
-      .select('fecha_vencimiento, periodo, clientes(razon_social), obligaciones(periodicidad)')
-      .order('fecha_vencimiento', { ascending: true });
+    const [
+      { data: vencimientos, error: errorVencimientos },
+      { data: presentados, error: errorPresentados },
+    ] = await Promise.all([
+      supabaseCalendario
+        .from('calendario_vencimientos')
+        .select('cliente_id, obligacion_id, periodo, fecha_vencimiento, clientes(razon_social), obligaciones(periodicidad)')
+        .order('fecha_vencimiento', { ascending: true }),
+      supabaseCalendario
+        .from('presentaciones')
+        .select('cliente_id, obligacion_id, periodo')
+        .eq('estado', 'presentado'),
+    ]);
 
-    if (error) throw error;
+    if (errorVencimientos) throw errorVencimientos;
+    if (errorPresentados) throw errorPresentados;
 
-    dibujarTablaCalendario(data || []);
+    // Solo mostramos lo que todavía no se presentó: si ya hay una fila en
+    // `presentaciones` marcada como "presentado" para ese mismo cliente +
+    // obligación + período, este vencimiento deja de listarse acá (ya está
+    // resuelto). El historial completo, presentado o no, sigue en Historial.
+    const presentadosSet = new Set(
+      (presentados || []).map((p) => `${p.cliente_id}-${p.obligacion_id}-${p.periodo}`)
+    );
+    const pendientes = (vencimientos || []).filter(
+      (v) => !presentadosSet.has(`${v.cliente_id}-${v.obligacion_id}-${v.periodo}`)
+    );
+
+    dibujarTablaCalendario(pendientes);
   } catch (error) {
     console.error('Error al cargar el calendario:', error);
     if (elCalendarioMensaje) {

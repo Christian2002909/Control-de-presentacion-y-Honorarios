@@ -202,6 +202,31 @@ input[type='date'] {
   color: var(--color-chico-texto);
 }
 
+.boton-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--color-marca);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.grupo-vencimiento {
+  margin-bottom: 24px;
+}
+
+.grupo-vencimiento-titulo {
+  margin: 0 0 4px;
+  padding: 8px 12px;
+  background-color: var(--color-chico-fondo);
+  color: var(--color-chico-texto);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .fila-form {
   margin-bottom: 14px;
   display: flex;

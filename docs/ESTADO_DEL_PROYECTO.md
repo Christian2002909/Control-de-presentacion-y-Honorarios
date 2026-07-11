@@ -16,10 +16,10 @@ App de escritorio para un estudio contable en Paraguay. Controla clientes, oblig
 
 | Fase | Pantalla | Qué hace |
 |---|---|---|
-| 1 | Clientes | Alta, edición, listado, filtro por responsable. Cada cliente tiene además clave de Marangatu (texto plano) y qué obligaciones le corresponden (checkboxes, ver abajo). Ya no tiene "Tipo de Contribuyente" (se sacó de la app y de la base, quedó redundante) |
-| 2 | Obligaciones | Catálogo fijo (IVA, IRE SIMPLE, IRE GENERAL, ESTADO FINANCIERO, IRP-RSP, IRP-RGC, IDU). Ya no tiene pantalla propia — se usa desde Clientes para armar los checkboxes y desde Calendario/Presentaciones para calcular vencimientos |
-| 3 | Calendario | Genera y muestra los vencimientos calculados según terminación de RUC, **solo para las obligaciones que cada cliente tiene asignadas**. Se actualiza solo, nunca hay que recrearlo a mano |
-| 4 | Presentaciones | Checkbox por Cliente + Obligación asignada + Período vigente, con fecha automática al marcar |
+| 1 | Presentaciones | **Pantalla principal (se abre primero al entrar)**. Filtro por Obligación (arranca en IVA), clientes agrupados por "VENCIMIENTO N - FECHA D" según terminación de RUC — igual que la planilla de control en Excel que usaba el estudio. Checkbox de presentado con fecha automática, y un link en cada cliente para editarlo (abre la pestaña Clientes) |
+| 2 | Clientes | Ahora es **solo para cargar/editar** un cliente (sin listado propio — para ver los ya cargados hay que ir a Presentaciones). Tiene clave de Marangatu (texto plano) y qué obligaciones le corresponden (checkboxes). Ya no tiene "Tipo de Contribuyente" (se sacó de la app y de la base, quedó redundante) |
+| 3 | Obligaciones | Catálogo fijo (IVA, IRE SIMPLE, IRE GENERAL, ESTADO FINANCIERO, IRP-RSP, IRP-RGC, IDU). Ya no tiene pantalla propia — se usa desde Clientes para armar los checkboxes y desde Calendario/Presentaciones para calcular vencimientos |
+| 4 | Calendario | Genera los vencimientos calculados según terminación de RUC, solo para las obligaciones que cada cliente tiene asignadas, y **solo muestra lo que todavía no se presentó** (una vez presentado, desaparece de acá). Se actualiza solo, nunca hay que recrearlo a mano |
 | 5 | Historial | Todo lo presentado alguna vez, orden cronológico, sin agrupar |
 | 6 | Honorarios | Monto pactado por cliente, registro de pagos, estado "Al día"/"Debe" con deuda acumulada |
 | 7 | Configuración | Tema claro/oscuro, guardado por computadora (localStorage) |
@@ -45,10 +45,10 @@ js/auth.js                   Login/logout con Supabase Auth. Muestra #vista-logi
                               según haya sesión o no. No hay alta de usuarios desde la app.
 js/navegacion.js             Muestra/oculta las vistas al hacer clic en el menú, y vuelve a pedir los
                               datos de esa pantalla (llama a window.cargarX())
-js/clientes.js               Pantalla Clientes (incluye clave Marangatu y checkboxes de obligaciones)
+js/clientes.js               Pantalla Clientes: SOLO alta/edición (sin listado, ver window.editarClienteDesdeOtraVista)
 js/calendario-logica.js      Funciones puras de cálculo de fechas (día por RUC, ajuste por feriado, etc.)
 js/calendario.js             Pantalla Calendario (usa calendario-logica.js, filtra por cliente_obligaciones)
-js/presentaciones.js         Pantalla Presentaciones (usa calendario-logica.js, filtra por cliente_obligaciones)
+js/presentaciones.js         Pantalla PRINCIPAL: filtro por Obligación, agrupado por vencimiento (como el Excel)
 js/historial.js              Pantalla Historial
 js/honorarios.js             Pantalla Honorarios
 js/configuracion.js          Pantalla Configuración (tema claro/oscuro, aplica data-theme en <html>)
@@ -84,11 +84,19 @@ Antes, el Calendario y Presentaciones asumían que TODOS los clientes tenían to
 - Al guardar, se reemplazan todas las filas de `cliente_obligaciones` de ese cliente por las que quedaron tildadas (se borra todo y se reinserta; son pocas filas, no vale la pena comparar diferencias).
 - Calendario y Presentaciones ahora recorren `cliente_obligaciones` (en vez de cliente × catálogo completo) para decidir qué vencimientos/presentaciones generar. IDU sigue sin generarse nunca automáticamente aunque esté tildado (periodicidad "manual").
 - La pantalla de catálogo de Obligaciones (antes Fase 2, de solo lectura) se sacó del menú: ya no aporta nada que no esté en el formulario de Clientes.
-- El Calendario ya no muestra la columna "Obligación" (pedido explícito del usuario); Presentaciones e Historial sí la siguen mostrando.
+- El Calendario ya no muestra la columna "Obligación" (pedido explícito del usuario); Historial sí la sigue mostrando. Presentaciones tampoco la muestra, porque ahora se filtra por una sola obligación a la vez (ver siguiente sección).
 
 ## Clave de Marangatu
 
-Cada cliente tiene un campo `clave_marangatu` (texto plano, visible en la tabla de Clientes) — es la clave de acceso al Sistema Marangatu (SET) de ese contribuyente, igual que en el Excel que usaba el estudio antes de esta app. A propósito no está oculta ni encriptada: el pedido explícito fue que se vea de un vistazo.
+Cada cliente tiene un campo `clave_marangatu` (texto plano) — es la clave de acceso al Sistema Marangatu (SET) de ese contribuyente, igual que en el Excel que usaba el estudio antes de esta app. A propósito no está oculta ni encriptada: el pedido explícito fue que se vea de un vistazo. Se ve en la pantalla de Presentaciones (columna "Clave"), no hay listado de clientes aparte (ver siguiente sección).
+
+## Presentaciones es la pantalla principal; Clientes es solo para cargar
+
+Reestructuración pedida por el usuario mostrándole cómo se veía su planilla Excel de control (una hoja por obligación, agrupada por "VENCIMIENTO N - FECHA D" según terminación de RUC, columnas N°/Nombre/RUC/Clave).
+
+- **`js/presentaciones.js`** es ahora la primera pestaña que se ve al loguearse (antes era Clientes). Tiene un filtro `<select>` por Obligación (arranca siempre en IVA, no hay opción "Todos" — se decidió así en vez de una vista mezclada porque el usuario prefirió una sola obligación a la vez, como las hojas del Excel). Para la obligación elegida, agrupa por terminación de RUC igual que el Excel (`VENCIMIENTO N - FECHA D`, usando `DIA_POR_TERMINACION_RUC` de `calendario-logica.js`) y muestra N° (correlativo sin cortes entre grupos), Nombre, RUC, Clave, y el checkbox de Presentado con fecha. El nombre del cliente es un botón que abre la pestaña Clientes para editarlo (`window.editarClienteDesdeOtraVista`).
+- **`js/clientes.js`** perdió su tabla/listado y su filtro por responsable: ahora solo tiene el formulario de alta/edición, siempre visible (no hay botón "+ Nuevo Cliente" para mostrarlo/ocultarlo). Al entrar directo a esta pestaña arranca en blanco ("Nuevo Cliente"); si se llega desde el botón de editar en Presentaciones, arranca con los datos de ese cliente cargados.
+- El truco para que no se pisen: `editarClienteDesdeOtraVista(clienteId)` carga los datos del cliente y sus obligaciones, pone una bandera `ignorarProximaCarga = true`, y recién ahí llama a `window.mostrarVista('vista-clientes')` (que dispara `cargarClientes()` vía `navegacion.js`) — `cargarClientes()` ve la bandera, no resetea el formulario, y la función de edición lo completa con los datos ya cargados. Sin esta bandera, `cargarClientes()` limpiaría el formulario a "Nuevo Cliente" antes de poder mostrarlo lleno.
 
 ## Tema claro/oscuro
 
