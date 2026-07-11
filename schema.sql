@@ -56,18 +56,12 @@ create table if not exists public.clientes (
         check (cierre_fiscal_mes between 1 and 12)
 );
 
-comment on table  public.clientes is
-    'Clientes del estudio contable (Fase 1). Obligaciones, honorarios, etc. se agregan en fases posteriores.';
-comment on column public.clientes.terminacion_ruc is
-    'Último dígito antes del guion del RUC; se usa luego para el calendario de vencimientos de IVA (SET).';
-comment on column public.clientes.responsable is
-    'Encargado del cliente dentro del estudio (texto libre, sin FK a usuarios todavía).';
-comment on column public.clientes.cierre_fiscal_mes is
-    'Mes (1-12) de cierre del ejercicio fiscal; 12 = diciembre (default). Usado por calendario-logica.js para IRE SIMPLE/GENERAL y ESTADO FINANCIERO.';
-
 -- Migración para bases ya existentes creadas antes de este campo (la
 -- CREATE TABLE de arriba ya lo incluye para instalaciones nuevas; estas
--- dos líneas son no-op si la columna/constraint ya existen).
+-- líneas son no-op si la columna/constraint ya existen). Va ANTES de los
+-- `comment on column` de abajo a propósito: si la tabla ya existía sin
+-- esta columna, el CREATE TABLE de arriba fue un no-op y la columna
+-- todavía no existe hasta que corre este ALTER.
 alter table public.clientes
     add column if not exists cierre_fiscal_mes smallint not null default 12;
 
@@ -81,6 +75,15 @@ begin
             check (cierre_fiscal_mes between 1 and 12);
     end if;
 end $$;
+
+comment on table  public.clientes is
+    'Clientes del estudio contable (Fase 1). Obligaciones, honorarios, etc. se agregan en fases posteriores.';
+comment on column public.clientes.terminacion_ruc is
+    'Último dígito antes del guion del RUC; se usa luego para el calendario de vencimientos de IVA (SET).';
+comment on column public.clientes.responsable is
+    'Encargado del cliente dentro del estudio (texto libre, sin FK a usuarios todavía).';
+comment on column public.clientes.cierre_fiscal_mes is
+    'Mes (1-12) de cierre del ejercicio fiscal; 12 = diciembre (default). Usado por calendario-logica.js para IRE SIMPLE/GENERAL y ESTADO FINANCIERO.';
 
 -- ---------------------------------------------------------------------
 -- 2. ÍNDICES
