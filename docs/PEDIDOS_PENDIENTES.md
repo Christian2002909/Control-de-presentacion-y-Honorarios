@@ -15,6 +15,18 @@ Este documento junta, en las palabras del usuario, todo lo que falta implementar
 ## Pantalla Clientes
 
 - [ ] **Campo "Responsable" pasa de texto libre a lista desplegable**: en vez de tipear el nombre a mano (hoy `placeholder="Ej: Christian"`), mostrar un `<select>` con los nombres de la gente que ya tiene su usuario creado en el sistema (se lee de la tabla `perfiles`). Alcance confirmado por el usuario: SOLO este cambio de campo — no incluye (todavía) filtrar/ver la cartera de cada uno, eso sigue pausado aparte.
+- [ ] **Sacar la sección "Membrete para la ficha de pago (opcional)" de este formulario** (el override por cliente individual, con nombre/dirección/teléfono). Se reemplaza por un membrete único para todos, configurado desde Honorarios (ver más abajo) — **PENDIENTE DE CONFIRMAR**: si ese membrete único reemplaza al que hoy vive en Configuración ("Membrete General") o si queda duplicado en las dos pantallas. El usuario todavía no respondió esta pregunta, no asumir ninguna de las dos antes de que la conteste.
+
+## Pantalla Honorarios
+
+- [ ] **Agregar configuración de membrete** (nombre/dirección/teléfono + **logo**, como imagen) para la ficha de pago — uno solo para todos los clientes, sin opción de elegir por cliente (reemplaza el override por cliente que se saca de Clientes, ver arriba). Falta confirmar si reemplaza o convive con el membrete de Configuración (ver ítem de arriba).
+- [ ] **Soporte de logo**: hoy el membrete (tanto el general como el que se saca de Clientes) es solo texto (nombre/dirección/teléfono) — agregar la posibilidad de subir/mostrar una imagen de logo en la ficha de pago.
+
+## Pantalla Calendario
+
+- [ ] **Volver a mostrar la columna "Obligación"** en la tabla del Calendario — ATENCIÓN: esto es lo contrario de lo que se había pedido antes (`docs/ESTADO_DEL_PROYECTO.md` dice "el Calendario ya no muestra la columna Obligación, pedido explícito del usuario"). Confirmado de nuevo ahora: agregarla de vuelta.
+- [ ] **Nueva obligación: RG 90 (Registro de Comprobantes, Marangatu)** — investigado (DNIT, Resolución General N° 90/2021): registro electrónico de comprobantes de ventas/compras/ingresos/egresos, con dos variantes/códigos: **955 mensual** y **956 anual**. Quien tiene IVA + IRP-RSP o IVA + IRE SIMPLE debe registrar y confirmar mensualmente, dentro del plazo de IVA; los que solo tienen IRP-RSP confirman de forma anual (según el mes de cierre). Al confirmarse, Marangatu genera un "Comprobante de Presentación" — el sistema debería tener recordatorio (aparecer en Calendario/Presentaciones) y una forma de marcar "confirmado" igual que las demás obligaciones. **Falta precisar el día exacto de vencimiento** (para la variante mensual coincidiría con la fecha de IVA por terminación de RUC; para la anual hay que confirmar la regla exacta del día según cierre fiscal) antes de poder programar el cálculo — no inventar la fecha, investigar más a fondo primero.
+  - Fuentes: [RG N° 90 — DNIT](https://www.dnit.gov.py/documents/d/global/rg-n-90-registro-de-comprobantes-de-ingresos-ventas-egresos-y-compras_07_05_2021), [Guía paso a paso — confirmar presentación de comprobantes (DNIT)](https://www.dnit.gov.py/documents/20123/224724/Guia+Paso+a+Paso+-+C%C3%B3mo+confirmar+la+presentaci%C3%B3n+de+los+comprobantes+registrados.pdf), [Registro electrónico de comprobantes — Resolución 90/2021 (Estudio Contable Lic. Elisabeth Neufeld de Mueller)](https://www.ecmueller.com.py/es/registro-electronico-de-comprobantes-res-90-2021/)
 
 ## General (todo el sistema)
 
