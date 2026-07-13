@@ -224,7 +224,6 @@ function dibujarGrupos(filas) {
           <th>RUC</th>
           <th>Clave</th>
           <th>Presentado</th>
-          <th>Fecha</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -243,7 +242,6 @@ function dibujarGrupos(filas) {
         <td>${escaparHtmlPresentaciones(fila.clientes.ruc)}</td>
         <td>${escaparHtmlPresentaciones(fila.clientes.clave_marangatu)}</td>
         <td class="celda-checkbox"><input type="checkbox" data-id="${fila.id}" ${marcado ? 'checked' : ''} /></td>
-        <td>${fila.fecha_presentacion ? formatearFechaVisiblePresentaciones(fila.fecha_presentacion) : '—'}</td>
       `;
 
       tbody.appendChild(tr);
@@ -252,14 +250,6 @@ function dibujarGrupos(filas) {
     grupo.appendChild(tabla);
     elGrupos.appendChild(grupo);
   }
-}
-
-function formatearFechaVisiblePresentaciones(fechaISOConHora) {
-  const fecha = new Date(fechaISOConHora);
-  const dia = String(fecha.getDate()).padStart(2, '0');
-  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-  const anio = fecha.getFullYear();
-  return `${dia}/${mes}/${anio}`;
 }
 
 function escaparHtmlPresentaciones(texto) {

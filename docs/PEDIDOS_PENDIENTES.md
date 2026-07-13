@@ -10,7 +10,7 @@ Este documento junta, en las palabras del usuario, todo lo que falta implementar
 ## Pantalla Presentaciones (y probablemente otras — ver bug de fondo)
 
 - [x] **[BUG] Cartel rojo "No se pudieron cargar las presentaciones" queda pegado aunque la tabla cargue bien.** Causa encontrada: cada pantalla intenta cargar datos apenas arranca la app, antes de terminar de loguearse (a propósito, así está documentado); ese primer intento falla porque todavía no hay sesión, y muestra el cartel de error — pero el código nunca lo vuelve a OCULTAR cuando la carga real después del login sale bien. Afecta al menos a Presentaciones (`presentaciones-mensaje`) y Calendario (`calendario-mensaje`); hay que revisar si también pasa en Historial/Honorarios/Configuración y corregir en todas: ocultar el mensaje de error apenas una carga se complete con éxito. (Corregido en `presentaciones.js`, `calendario.js` e `historial.js`, que mostraban el error sin ningún mecanismo de auto-ocultado. Se revisaron también `honorarios.js` y `configuracion.js`: esos dos ya usan un helper `mostrarMensajeX()` que oculta el cartel solo con `setTimeout` a los 4 segundos, tanto en éxito como en error, así que ese bug de "cartel pegado para siempre" no se daba ahí — no requirieron cambios.)
-- [ ] **Sacar la columna "Fecha"** de la tabla de Presentaciones (fecha en que se marcó presentado) — no hace falta mostrarla ahí.
+- [x] **Sacar la columna "Fecha"** de la tabla de Presentaciones (fecha en que se marcó presentado) — no hace falta mostrarla ahí.
 
 ## Pantalla Clientes
 
