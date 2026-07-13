@@ -16,12 +16,20 @@
 // Nota: esta ruta es relativa a index.html (no a este archivo), porque así
 // resuelve Node los require() dentro de un <script> cargado en la ventana.
 const supabase = require('./js/supabaseClient.js');
+const { leerFilasDeArchivoExcel, descargarComoExcel, celdaEsAfirmativa, celdaTexto, celdaNumero } = require('./js/excel-utils.js');
 
 // --- Referencias a elementos del HTML -----------------------------------
 const elMensaje = document.getElementById('mensaje');
 const elFormTitulo = document.getElementById('form-titulo');
 const elForm = document.getElementById('form-cliente');
 const elBtnCancelar = document.getElementById('btn-cancelar');
+
+const elBtnImportarClientes = document.getElementById('btn-importar-clientes-excel');
+const elInputImportarClientes = document.getElementById('input-importar-clientes-excel');
+const elBtnExportarClientes = document.getElementById('btn-exportar-clientes-excel');
+const elImportarResumen = document.getElementById('clientes-importar-resumen');
+const elImportarResumenTexto = document.getElementById('clientes-importar-resumen-texto');
+const elImportarResumenDetalle = document.getElementById('clientes-importar-resumen-detalle');
 
 const elClienteId = document.getElementById('cliente-id');
 const elClienteRuc = document.getElementById('cliente-ruc');
@@ -418,6 +426,254 @@ elForm.addEventListener('submit', async (evento) => {
     }
   }
 });
+
+// --- Importar clientes desde Excel ------------------------------------------
+//
+// Columnas esperadas (ver también exportarClientesAExcel, que genera un
+// archivo con este mismo formato para usar de plantilla): "RUC", "Razón
+// Social", "Terminación RUC", "Clave Marangatu", "Cierre Fiscal (mes)", y
+// una columna más por cada obligación del catálogo (nombre exacto de
+// obligaciones.nombre, ej. "IVA", "RG 90 Mensual") con "Sí"/"No" (o vacía
+// = No) indicando si el cliente la tiene asignada.
+//
+// Por fila: si el RUC ya existe (comparación exacta) se ACTUALIZA ese
+// cliente; si no existe, se crea. cliente_obligaciones se sincroniza con
+// el mismo patrón "borrar todo y reinsertar" que ya usa el formulario
+// manual de arriba. Cada fila se procesa en su propio try/catch para que
+// un dato inválido en una fila no trabe la importación de las demás --
+// al final se muestra cuántas se crearon/actualizaron y el detalle de las
+// que se saltearon, con el número de fila del Excel y el motivo.
+//
+// Responsable: la planilla NO trae esta columna (se maneja aparte, por el
+// sistema de usuarios -- ver docs/PEDIDOS_PENDIENTES.md, "Cartera por
+// responsable"). Como clientes.responsable es NOT NULL, un cliente NUEVO
+// creado por este importador queda asignado al usuario que está haciendo
+// la importación en ese momento (mismo criterio que ya usa
+// abrirFormularioNuevo() al precargar el <select> de Responsable para un
+// alta manual). Un cliente EXISTENTE actualizado por RUC no toca su
+// responsable/responsable_id actual -- el import solo pisa los campos que
+// realmente vienen en el Excel.
+async function importarClientesDesdeExcel(archivo) {
+  if (!supabase) return;
+
+  elBtnImportarClientes.disabled = true;
+  elImportarResumen.classList.add('oculto');
+
+  try {
+    const filas = await leerFilasDeArchivoExcel(archivo);
+
+    // Por si se importa antes de que termine de cargar el catálogo (no
+    // debería pasar en la práctica, ya que el botón vive en la misma
+    // pantalla que lo carga, pero así queda cubierto igual).
+    if (obligacionesCache.length === 0) {
+      const { data, error } = await supabase.from('obligaciones').select('*').order('id');
+      if (error) throw error;
+      obligacionesCache = data || [];
+    }
+
+    const { data: clientesExistentes, error: errorClientesExistentes } = await supabase
+      .from('clientes')
+      .select('id, ruc');
+    if (errorClientesExistentes) throw errorClientesExistentes;
+
+    const idPorRuc = new Map((clientesExistentes || []).map((c) => [c.ruc.trim(), c.id]));
+
+    const responsableTexto = perfilesCache.find((p) => p.id === usuarioActualId)?.nombre || 'Sin asignar';
+
+    let creados = 0;
+    let actualizados = 0;
+    const filasSalteadas = [];
+
+    for (let i = 0; i < filas.length; i += 1) {
+      const numeroFila = i + 2; // la fila 1 del Excel es el encabezado
+      const fila = filas[i];
+
+      try {
+        const ruc = celdaTexto(fila['RUC']);
+        const razonSocial = celdaTexto(fila['Razón Social']);
+
+        if (!ruc || !razonSocial) {
+          throw new Error('RUC y Razón Social son obligatorios.');
+        }
+        if (!/^[0-9]{1,8}-[0-9]$/.test(ruc)) {
+          throw new Error('El RUC no tiene el formato esperado (ej: 80012345-6).');
+        }
+
+        let terminacionRuc = celdaNumero(fila['Terminación RUC']);
+        if (terminacionRuc === null) {
+          // Se deriva del RUC (último dígito antes del guion), mismo
+          // criterio que usa el formulario manual al escribir el RUC.
+          terminacionRuc = Number(ruc.match(/^(\d+)-\d$/)[1].slice(-1));
+        }
+        if (terminacionRuc < 0 || terminacionRuc > 9) {
+          throw new Error('Terminación de RUC fuera de rango (0-9).');
+        }
+
+        let cierreFiscalMes = celdaNumero(fila['Cierre Fiscal (mes)']);
+        if (cierreFiscalMes === null) cierreFiscalMes = 12; // mismo default que la tabla clientes
+        if (![4, 6, 12].includes(cierreFiscalMes)) {
+          throw new Error('Cierre Fiscal (mes) inválido: solo se admite 4, 6 o 12.');
+        }
+
+        const claveMarangatu = celdaTexto(fila['Clave Marangatu']) || null;
+
+        const obligacionesSeleccionadas = obligacionesCache
+          .filter((obligacion) => celdaEsAfirmativa(fila[obligacion.nombre]))
+          .map((obligacion) => obligacion.id);
+
+        const idExistente = idPorRuc.get(ruc);
+        let clienteId;
+
+        if (idExistente) {
+          const { error } = await supabase
+            .from('clientes')
+            .update({
+              ruc,
+              razon_social: razonSocial,
+              terminacion_ruc: terminacionRuc,
+              clave_marangatu: claveMarangatu,
+              cierre_fiscal_mes: cierreFiscalMes,
+            })
+            .eq('id', idExistente);
+          if (error) throw error;
+          clienteId = idExistente;
+          actualizados += 1;
+        } else {
+          const { data, error } = await supabase
+            .from('clientes')
+            .insert({
+              ruc,
+              razon_social: razonSocial,
+              terminacion_ruc: terminacionRuc,
+              clave_marangatu: claveMarangatu,
+              cierre_fiscal_mes: cierreFiscalMes,
+              responsable: responsableTexto,
+              responsable_id: usuarioActualId,
+            })
+            .select('id')
+            .single();
+          if (error) throw error;
+          clienteId = data.id;
+          creados += 1;
+          idPorRuc.set(ruc, clienteId); // por si el mismo RUC se repite más abajo en el mismo archivo
+        }
+
+        const { error: errorBorrarObligaciones } = await supabase
+          .from('cliente_obligaciones')
+          .delete()
+          .eq('cliente_id', clienteId);
+        if (errorBorrarObligaciones) throw errorBorrarObligaciones;
+
+        if (obligacionesSeleccionadas.length > 0) {
+          const { error: errorInsertarObligaciones } = await supabase
+            .from('cliente_obligaciones')
+            .insert(obligacionesSeleccionadas.map((obligacionId) => ({ cliente_id: clienteId, obligacion_id: obligacionId })));
+          if (errorInsertarObligaciones) throw errorInsertarObligaciones;
+        }
+      } catch (errorFila) {
+        console.error(`Error al importar la fila ${numeroFila} del Excel de clientes:`, errorFila);
+        filasSalteadas.push({
+          fila: numeroFila,
+          motivo: errorFila.code === '23505' ? 'Ya existe un cliente con ese RUC.' : (errorFila.message || 'Error desconocido.'),
+        });
+      }
+    }
+
+    mostrarResumenImportacionClientes(creados, actualizados, filasSalteadas);
+
+    // Si se creó o actualizó algo, el formulario queda limpio (no hay
+    // ningún cliente puntual en edición después de un import masivo).
+    if (creados > 0 || actualizados > 0) abrirFormularioNuevo();
+  } catch (error) {
+    console.error('Error al importar clientes desde Excel:', error);
+    mostrarMensaje('No se pudo leer el archivo. Verificá que sea un .xlsx con el formato esperado.', 'error', true);
+  } finally {
+    elBtnImportarClientes.disabled = false;
+    elInputImportarClientes.value = '';
+  }
+}
+
+function mostrarResumenImportacionClientes(creados, actualizados, filasSalteadas) {
+  elImportarResumenTexto.textContent =
+    `Importación de Clientes terminada: ${creados} creado(s), ${actualizados} actualizado(s)` +
+    (filasSalteadas.length > 0 ? `, ${filasSalteadas.length} fila(s) salteada(s) (detalle abajo).` : '.');
+
+  elImportarResumenDetalle.innerHTML = filasSalteadas
+    .map((item) => `<li>Fila ${item.fila}: ${escaparHtml(item.motivo)}</li>`)
+    .join('');
+
+  elImportarResumen.classList.remove('oculto');
+}
+
+if (elBtnImportarClientes && elInputImportarClientes) {
+  elBtnImportarClientes.addEventListener('click', () => elInputImportarClientes.click());
+  elInputImportarClientes.addEventListener('change', () => {
+    const archivo = elInputImportarClientes.files[0];
+    if (archivo) importarClientesDesdeExcel(archivo);
+  });
+}
+
+// --- Exportar clientes a Excel ------------------------------------------
+//
+// Descarga TODOS los clientes del sistema (no hay ningún filtro en esta
+// pantalla) con las mismas columnas que espera importarClientesDesdeExcel,
+// para que el archivo exportado sirva de plantilla de referencia. El
+// catálogo de obligaciones se usa completo (sin filtrar por el panel "RG
+// 90 visible" de Configuración): la exportación es un respaldo de datos
+// crudos, no una vista de la interfaz.
+async function exportarClientesAExcel() {
+  if (!supabase) return;
+
+  elBtnExportarClientes.disabled = true;
+  try {
+    const [{ data: clientes, error: errorClientes }, { data: clienteObligaciones, error: errorClienteObligaciones }] =
+      await Promise.all([
+        supabase.from('clientes').select('*').order('razon_social'),
+        supabase.from('cliente_obligaciones').select('cliente_id, obligacion_id'),
+      ]);
+    if (errorClientes) throw errorClientes;
+    if (errorClienteObligaciones) throw errorClienteObligaciones;
+
+    let catalogoObligaciones = obligacionesCache;
+    if (catalogoObligaciones.length === 0) {
+      const { data, error } = await supabase.from('obligaciones').select('*').order('id');
+      if (error) throw error;
+      catalogoObligaciones = data || [];
+    }
+
+    const obligacionesPorCliente = new Map();
+    for (const fila of clienteObligaciones || []) {
+      if (!obligacionesPorCliente.has(fila.cliente_id)) obligacionesPorCliente.set(fila.cliente_id, new Set());
+      obligacionesPorCliente.get(fila.cliente_id).add(fila.obligacion_id);
+    }
+
+    const filasExcel = (clientes || []).map((cliente) => {
+      const asignadas = obligacionesPorCliente.get(cliente.id) || new Set();
+      const filaExcel = {
+        'RUC': cliente.ruc,
+        'Razón Social': cliente.razon_social,
+        'Terminación RUC': cliente.terminacion_ruc ?? '',
+        'Clave Marangatu': cliente.clave_marangatu ?? '',
+        'Cierre Fiscal (mes)': cliente.cierre_fiscal_mes ?? '',
+      };
+      for (const obligacion of catalogoObligaciones) {
+        filaExcel[obligacion.nombre] = asignadas.has(obligacion.id) ? 'Sí' : 'No';
+      }
+      return filaExcel;
+    });
+
+    descargarComoExcel(`clientes_${new Date().toISOString().slice(0, 10)}.xlsx`, [
+      { nombre: 'Clientes', filas: filasExcel },
+    ]);
+  } catch (error) {
+    console.error('Error al exportar clientes a Excel:', error);
+    mostrarMensaje('No se pudo exportar el Excel de clientes.', 'error');
+  } finally {
+    elBtnExportarClientes.disabled = false;
+  }
+}
+
+if (elBtnExportarClientes) elBtnExportarClientes.addEventListener('click', exportarClientesAExcel);
 
 // --- Editar un cliente desde otra pantalla (Presentaciones) -----------------
 

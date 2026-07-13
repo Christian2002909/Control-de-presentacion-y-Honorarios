@@ -71,6 +71,23 @@
            listado. Para ver los clientes ya cargados (con su RUC, clave
            de Marangatu, etc.) ver la pantalla de Presentaciones, que
            además permite abrir un cliente acá para editarlo. -->
+
+      <!-- Importar/exportar la cartera completa de clientes en Excel
+           (.xlsx). El importador actualiza por RUC exacto si el cliente ya
+           existe, o crea uno nuevo si no -- ver js/clientes.js. -->
+      <section class="tarjeta">
+        <h2>Importar / Exportar Clientes (Excel)</h2>
+        <div class="acciones-form">
+          <button type="button" id="btn-importar-clientes-excel" class="boton boton-secundario">Importar desde Excel</button>
+          <button type="button" id="btn-exportar-clientes-excel" class="boton boton-secundario">Exportar a Excel</button>
+          <input type="file" id="input-importar-clientes-excel" accept=".xlsx" class="oculto" />
+        </div>
+        <div id="clientes-importar-resumen" class="resumen-importacion oculto">
+          <p id="clientes-importar-resumen-texto"></p>
+          <ul id="clientes-importar-resumen-detalle" class="lista-resumen-importacion"></ul>
+        </div>
+      </section>
+
       <section id="form-cliente-contenedor" class="tarjeta">
         <h2 id="form-titulo">Nuevo Cliente</h2>
         <form id="form-cliente">
@@ -213,6 +230,25 @@
     <section id="vista-honorarios" class="vista oculto">
 
       <div id="honorarios-mensaje" class="mensaje oculto"></div>
+
+      <!-- Importar/exportar en Excel (.xlsx): dos importadores separados
+           (cuotas pactadas, historial de pagos) más un exportador con dos
+           hojas (Honorarios + Historial de Pagos) -- ver js/honorarios.js. -->
+      <section class="tarjeta">
+        <h2>Importar / Exportar Honorarios (Excel)</h2>
+        <div class="acciones-form">
+          <button type="button" id="btn-importar-cuotas-excel" class="boton boton-secundario">Importar Cuotas desde Excel</button>
+          <input type="file" id="input-importar-cuotas-excel" accept=".xlsx" class="oculto" />
+          <button type="button" id="btn-importar-pagos-excel" class="boton boton-secundario">Importar Historial de Pagos desde Excel</button>
+          <input type="file" id="input-importar-pagos-excel" accept=".xlsx" class="oculto" />
+          <button type="button" id="btn-exportar-honorarios-excel" class="boton boton-secundario">Exportar a Excel</button>
+        </div>
+        <div id="honorarios-importar-resumen" class="resumen-importacion oculto">
+          <p id="honorarios-importar-resumen-titulo" class="fila-form-titulo"></p>
+          <p id="honorarios-importar-resumen-texto"></p>
+          <ul id="honorarios-importar-resumen-detalle" class="lista-resumen-importacion"></ul>
+        </div>
+      </section>
 
       <!-- Honorario pactado por cliente. Registrar un pago, editar la cuota
            pactada y ver el detalle de un cliente se hacen todos desde acá,

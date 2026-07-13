@@ -34,10 +34,21 @@
 
 const supabaseHonorarios = require('./js/supabaseClient.js');
 const { formatearFechaISO, obtenerPeriodoVigente } = require('./js/calendario-logica.js');
+const { leerFilasDeArchivoExcel, descargarComoExcel, celdaTexto, celdaNumero } = require('./js/excel-utils.js');
 
 const elHonorariosMensaje = document.getElementById('honorarios-mensaje');
 const elHonorariosBuscar = document.getElementById('honorarios-buscar');
 const elFiltroCartera = document.getElementById('honorarios-filtro-cartera');
+
+const elBtnImportarCuotas = document.getElementById('btn-importar-cuotas-excel');
+const elInputImportarCuotas = document.getElementById('input-importar-cuotas-excel');
+const elBtnImportarPagos = document.getElementById('btn-importar-pagos-excel');
+const elInputImportarPagos = document.getElementById('input-importar-pagos-excel');
+const elBtnExportarHonorarios = document.getElementById('btn-exportar-honorarios-excel');
+const elImportarResumenHonorarios = document.getElementById('honorarios-importar-resumen');
+const elImportarResumenHonorariosTitulo = document.getElementById('honorarios-importar-resumen-titulo');
+const elImportarResumenHonorariosTexto = document.getElementById('honorarios-importar-resumen-texto');
+const elImportarResumenHonorariosDetalle = document.getElementById('honorarios-importar-resumen-detalle');
 
 const elTablaHonorariosBody = document.getElementById('tabla-honorarios-body');
 const elSinHonorarios = document.getElementById('sin-honorarios');
@@ -1041,6 +1052,314 @@ function generarFichaPago(cliente, honorario) {
   elFichaImprimir.innerHTML = html;
   window.print();
 }
+
+// --- Importar / Exportar Excel --------------------------------------------
+//
+// Dos importadores SEPARADOS (dos botones, dos archivos .xlsx distintos --
+// no es un solo Excel con varias hojas), más un exportador único con dos
+// hojas (Honorarios + Historial de Pagos, ver exportarHonorariosAExcel).
+// Comparten el mismo bloque de resumen (#honorarios-importar-resumen): se
+// reescribe con el título de cuál de los dos corrió por última vez.
+
+function mostrarResumenImportacionHonorarios(titulo, resumenTexto, filasSalteadas) {
+  elImportarResumenHonorariosTitulo.textContent = titulo;
+  elImportarResumenHonorariosTexto.textContent =
+    resumenTexto + (filasSalteadas.length > 0 ? ` ${filasSalteadas.length} fila(s) salteada(s) (detalle abajo).` : '');
+  elImportarResumenHonorariosDetalle.innerHTML = filasSalteadas
+    .map((item) => `<li>Fila ${item.fila}: ${escaparHtmlHonorarios(item.motivo)}</li>`)
+    .join('');
+  elImportarResumenHonorarios.classList.remove('oculto');
+}
+
+// Acepta una celda de fecha ya convertida a Date por SheetJS (cellDates:
+// true, ver excel-utils.js) o texto en "yyyy-mm-dd"/"dd/mm/yyyy". Devuelve
+// la fecha en formato ISO (yyyy-mm-dd) o null si no se pudo interpretar.
+function parsearFechaDeCeldaHonorarios(valor) {
+  if (valor instanceof Date && !Number.isNaN(valor.getTime())) {
+    return formatearFechaISO(valor);
+  }
+
+  const texto = celdaTexto(valor);
+  if (!texto) return null;
+
+  let coincidencia = texto.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (coincidencia) {
+    const [, anio, mes, dia] = coincidencia;
+    return formatearFechaISO(new Date(Number(anio), Number(mes) - 1, Number(dia)));
+  }
+
+  coincidencia = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (coincidencia) {
+    const [, dia, mes, anio] = coincidencia;
+    return formatearFechaISO(new Date(Number(anio), Number(mes) - 1, Number(dia)));
+  }
+
+  return null;
+}
+
+// --- Importar Cuotas (RUC + Cuota Mensual + Cuota Anual) ------------------
+//
+// Columnas esperadas: "RUC", "Cuota Mensual", "Cuota Anual" (al menos una
+// de las dos debe venir cargada). Por cada fila con un RUC que exista en
+// `clientes`, hace upsert sobre `honorarios` (onConflict cliente_id) --
+// mismo patrón que ya usa guardarCuotaInline() al editar la cuota desde
+// la interfaz. Si el RUC no existe, la fila se saltea con el motivo
+// "cliente no encontrado" (este importador no crea clientes nuevos, eso
+// es trabajo del importador de Clientes).
+async function importarCuotasDesdeExcel(archivo) {
+  if (!supabaseHonorarios) return;
+
+  elBtnImportarCuotas.disabled = true;
+  elImportarResumenHonorarios.classList.add('oculto');
+
+  try {
+    const filas = await leerFilasDeArchivoExcel(archivo);
+
+    const [{ data: clientes, error: errorClientes }, { data: honorariosExistentes, error: errorHonorarios }] =
+      await Promise.all([
+        supabaseHonorarios.from('clientes').select('id, ruc'),
+        supabaseHonorarios.from('honorarios').select('cliente_id'),
+      ]);
+    if (errorClientes) throw errorClientes;
+    if (errorHonorarios) throw errorHonorarios;
+
+    const idPorRuc = new Map((clientes || []).map((c) => [c.ruc.trim(), c.id]));
+    const clientesConHonorario = new Set((honorariosExistentes || []).map((h) => h.cliente_id));
+
+    let creados = 0;
+    let actualizados = 0;
+    const filasSalteadas = [];
+
+    for (let i = 0; i < filas.length; i += 1) {
+      const numeroFila = i + 2;
+      const fila = filas[i];
+
+      try {
+        const ruc = celdaTexto(fila['RUC']);
+        if (!ruc) throw new Error('RUC vacío.');
+
+        const clienteId = idPorRuc.get(ruc);
+        if (!clienteId) throw new Error('cliente no encontrado');
+
+        const montoMensual = celdaNumero(fila['Cuota Mensual']);
+        const montoAnual = celdaNumero(fila['Cuota Anual']);
+
+        if (montoMensual === null && montoAnual === null) {
+          throw new Error('Debe cargar Cuota Mensual y/o Cuota Anual.');
+        }
+        if (montoMensual !== null && montoMensual <= 0) throw new Error('Cuota Mensual debe ser mayor a 0.');
+        if (montoAnual !== null && montoAnual <= 0) throw new Error('Cuota Anual debe ser mayor a 0.');
+
+        const { error } = await supabaseHonorarios
+          .from('honorarios')
+          .upsert(
+            { cliente_id: clienteId, monto_mensual: montoMensual, monto_anual: montoAnual },
+            { onConflict: 'cliente_id' }
+          );
+        if (error) throw error;
+
+        if (clientesConHonorario.has(clienteId)) {
+          actualizados += 1;
+        } else {
+          creados += 1;
+          clientesConHonorario.add(clienteId); // por si el mismo RUC se repite más abajo en el archivo
+        }
+      } catch (errorFila) {
+        console.error(`Error al importar la fila ${numeroFila} del Excel de cuotas:`, errorFila);
+        filasSalteadas.push({ fila: numeroFila, motivo: errorFila.message || 'Error desconocido.' });
+      }
+    }
+
+    mostrarResumenImportacionHonorarios(
+      'Importar Cuotas',
+      `Importación de Cuotas terminada: ${creados} creada(s), ${actualizados} actualizada(s).`,
+      filasSalteadas
+    );
+
+    if (creados > 0 || actualizados > 0) await cargarHonorarios();
+  } catch (error) {
+    console.error('Error al importar cuotas desde Excel:', error);
+    mostrarMensajeHonorarios('No se pudo leer el archivo. Verificá que sea un .xlsx con el formato esperado.', 'error');
+  } finally {
+    elBtnImportarCuotas.disabled = false;
+    elInputImportarCuotas.value = '';
+  }
+}
+
+if (elBtnImportarCuotas && elInputImportarCuotas) {
+  elBtnImportarCuotas.addEventListener('click', () => elInputImportarCuotas.click());
+  elInputImportarCuotas.addEventListener('change', () => {
+    const archivo = elInputImportarCuotas.files[0];
+    if (archivo) importarCuotasDesdeExcel(archivo);
+  });
+}
+
+// --- Importar Historial de Pagos -------------------------------------------
+//
+// Columnas esperadas: "RUC", "Corresponde a" (Mensual/Anual), "Monto",
+// "Período - Mes" (1-12, solo obligatorio si Corresponde a = Mensual),
+// "Período - Año", "Forma de Pago" (Efectivo/Transferencia/Cheque), "N°
+// de Recibo" (opcional) y "Fecha de Pago". Cada fila válida hace un
+// INSERT en `pagos_honorarios` -- son pagos históricos, no se intenta
+// detectar duplicados (confirmado: reimportar el mismo archivo duplica
+// los pagos, aceptable para una carga inicial). Si el RUC no existe en
+// `clientes`, la fila se saltea con "cliente no encontrado".
+async function importarPagosDesdeExcel(archivo) {
+  if (!supabaseHonorarios) return;
+
+  elBtnImportarPagos.disabled = true;
+  elImportarResumenHonorarios.classList.add('oculto');
+
+  try {
+    const filas = await leerFilasDeArchivoExcel(archivo);
+
+    const { data: clientes, error: errorClientes } = await supabaseHonorarios.from('clientes').select('id, ruc');
+    if (errorClientes) throw errorClientes;
+
+    const idPorRuc = new Map((clientes || []).map((c) => [c.ruc.trim(), c.id]));
+
+    let insertados = 0;
+    const filasSalteadas = [];
+
+    for (let i = 0; i < filas.length; i += 1) {
+      const numeroFila = i + 2;
+      const fila = filas[i];
+
+      try {
+        const ruc = celdaTexto(fila['RUC']);
+        if (!ruc) throw new Error('RUC vacío.');
+
+        const clienteId = idPorRuc.get(ruc);
+        if (!clienteId) throw new Error('cliente no encontrado');
+
+        const correspondeA = celdaTexto(fila['Corresponde a']).toLowerCase();
+        const tipo = correspondeA.startsWith('mensual') ? 'mensual' : correspondeA.startsWith('anual') ? 'anual' : null;
+        if (!tipo) throw new Error('"Corresponde a" debe ser "Mensual" o "Anual".');
+
+        const monto = celdaNumero(fila['Monto']);
+        if (monto === null || monto <= 0) throw new Error('Monto inválido.');
+
+        const anio = celdaNumero(fila['Período - Año']);
+        if (anio === null) throw new Error('Período - Año es obligatorio.');
+
+        let periodoIso;
+        if (tipo === 'mensual') {
+          const mes = celdaNumero(fila['Período - Mes']);
+          if (mes === null || mes < 1 || mes > 12) {
+            throw new Error('Período - Mes debe estar entre 1 y 12 para la cuota mensual.');
+          }
+          periodoIso = formatearFechaISO(new Date(anio, mes - 1, 1));
+        } else {
+          periodoIso = formatearFechaISO(new Date(anio, 0, 1));
+        }
+
+        const formaPagoTexto = celdaTexto(fila['Forma de Pago']).toLowerCase();
+        const formaPago = ['efectivo', 'transferencia', 'cheque'].includes(formaPagoTexto) ? formaPagoTexto : null;
+        if (!formaPago) throw new Error('Forma de Pago debe ser Efectivo, Transferencia o Cheque.');
+
+        const numeroRecibo = celdaTexto(fila['N° de Recibo']) || null;
+
+        const fechaPago = parsearFechaDeCeldaHonorarios(fila['Fecha de Pago']);
+        if (!fechaPago) throw new Error('Fecha de Pago inválida (se espera dd/mm/aaaa o una fecha de Excel).');
+
+        const { error } = await supabaseHonorarios.from('pagos_honorarios').insert({
+          cliente_id: clienteId,
+          tipo_honorario: tipo,
+          monto_pagado: monto,
+          forma_pago: formaPago,
+          numero_recibo: numeroRecibo,
+          fecha_pago: fechaPago,
+          periodo: periodoIso,
+        });
+        if (error) throw error;
+
+        insertados += 1;
+      } catch (errorFila) {
+        console.error(`Error al importar la fila ${numeroFila} del Excel de pagos:`, errorFila);
+        filasSalteadas.push({ fila: numeroFila, motivo: errorFila.message || 'Error desconocido.' });
+      }
+    }
+
+    mostrarResumenImportacionHonorarios(
+      'Importar Historial de Pagos',
+      `Importación de Historial de Pagos terminada: ${insertados} pago(s) registrado(s).`,
+      filasSalteadas
+    );
+
+    if (insertados > 0) await cargarHonorarios();
+  } catch (error) {
+    console.error('Error al importar pagos desde Excel:', error);
+    mostrarMensajeHonorarios('No se pudo leer el archivo. Verificá que sea un .xlsx con el formato esperado.', 'error');
+  } finally {
+    elBtnImportarPagos.disabled = false;
+    elInputImportarPagos.value = '';
+  }
+}
+
+if (elBtnImportarPagos && elInputImportarPagos) {
+  elBtnImportarPagos.addEventListener('click', () => elInputImportarPagos.click());
+  elInputImportarPagos.addEventListener('change', () => {
+    const archivo = elInputImportarPagos.files[0];
+    if (archivo) importarPagosDesdeExcel(archivo);
+  });
+}
+
+// --- Exportar Honorarios a Excel --------------------------------------------
+//
+// Descarga TODOS los clientes (sin aplicar el filtro de cartera ni el
+// buscador de esta pantalla, mismo criterio que la exportación de
+// Clientes) en dos hojas: "Honorarios" (RUC, Razón Social, Cuota Mensual,
+// Cuota Anual, Estado) e "Historial de Pagos" (mismas columnas que espera
+// importarPagosDesdeExcel, más RUC/Razón Social) -- de forma que el
+// archivo exportado sirva de respaldo completo y de plantilla para
+// reimportar. Reutiliza clientesCacheHonorarios/honorariosCache/pagosCache
+// ya cargados por cargarHonorarios(), sin pedir datos nuevos.
+async function exportarHonorariosAExcel() {
+  if (!supabaseHonorarios) return;
+
+  elBtnExportarHonorarios.disabled = true;
+  try {
+    const filasHonorarios = clientesCacheHonorarios.map((cliente) => {
+      const honorario = honorariosCache.find((h) => h.cliente_id === cliente.id);
+      const resultado = calcularEstadoHonorario(honorario, cliente);
+      return {
+        'RUC': cliente.ruc,
+        'Razón Social': cliente.razon_social,
+        'Cuota Mensual': honorario?.monto_mensual ?? '',
+        'Cuota Anual': honorario?.monto_anual ?? '',
+        'Estado': resultado ? (resultado.estado === 'al_dia' ? 'Al día' : 'Debe') : 'Sin configurar',
+      };
+    });
+
+    const filasPagos = pagosCache.map((pago) => {
+      const cliente = clientesCacheHonorarios.find((c) => c.id === pago.cliente_id);
+      const [anioPeriodo, mesPeriodo] = pago.periodo.split('-');
+      return {
+        'RUC': cliente?.ruc ?? '',
+        'Razón Social': cliente?.razon_social ?? 'Cliente eliminado',
+        'Corresponde a': pago.tipo_honorario === 'mensual' ? 'Mensual' : 'Anual',
+        'Monto': Number(pago.monto_pagado),
+        'Período - Mes': pago.tipo_honorario === 'mensual' ? Number(mesPeriodo) : '',
+        'Período - Año': Number(anioPeriodo),
+        'Forma de Pago': formatearFormaPago(pago.forma_pago),
+        'N° de Recibo': pago.numero_recibo ?? '',
+        'Fecha de Pago': pago.fecha_pago,
+      };
+    });
+
+    descargarComoExcel(`honorarios_${new Date().toISOString().slice(0, 10)}.xlsx`, [
+      { nombre: 'Honorarios', filas: filasHonorarios },
+      { nombre: 'Historial de Pagos', filas: filasPagos },
+    ]);
+  } catch (error) {
+    console.error('Error al exportar honorarios a Excel:', error);
+    mostrarMensajeHonorarios('No se pudo exportar el Excel de honorarios.', 'error');
+  } finally {
+    elBtnExportarHonorarios.disabled = false;
+  }
+}
+
+if (elBtnExportarHonorarios) elBtnExportarHonorarios.addEventListener('click', exportarHonorariosAExcel);
 
 // Exponemos solo esta función en "window" para que navegacion.js pueda
 // volver a llamarla cada vez que se entra a esta pestaña.
