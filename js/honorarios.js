@@ -21,6 +21,13 @@
 // también se puede corregir desde la tabla de Historial de Pagos (o desde
 // el detalle de un cliente), reemplazando esa fila por el mismo
 // mini-formulario, precargado, que guarda con UPDATE en vez de INSERT.
+//
+// El selector "Ver cartera de" (Yo / cada perfil / Todos) filtra los
+// clientes de la tabla principal y de la sección de cuota anual por
+// `clientes.responsable_id` -- mismo patrón que ya usa
+// js/presentaciones.js. Se aplica ANTES que la búsqueda por nombre/RUC (el
+// buscador filtra sobre el resultado de la cartera elegida, no al revés);
+// es solo un filtro de visualización, no de acceso.
 // -----------------------------------------------------------------------
 
 (function () {
@@ -30,6 +37,7 @@ const { formatearFechaISO, obtenerPeriodoVigente } = require('./js/calendario-lo
 
 const elHonorariosMensaje = document.getElementById('honorarios-mensaje');
 const elHonorariosBuscar = document.getElementById('honorarios-buscar');
+const elFiltroCartera = document.getElementById('honorarios-filtro-cartera');
 
 const elTablaHonorariosBody = document.getElementById('tabla-honorarios-body');
 const elSinHonorarios = document.getElementById('sin-honorarios');
@@ -61,12 +69,23 @@ const ETIQUETAS_FORMA_PAGO = {
   cheque: 'Cheque',
 };
 
+// Valores especiales del selector "Ver cartera de" (los perfiles puntuales
+// usan directamente su uuid como value) -- mismas constantes que ya usa
+// js/presentaciones.js para el mismo selector.
+const VALOR_CARTERA_YO = 'yo';
+const VALOR_CARTERA_TODOS = 'todos';
+
 // Guardamos en memoria lo último cargado, para no volver a pedirlo cada
 // vez que se busca un cliente o se calcula un estado.
 let clientesCacheHonorarios = [];
 let honorariosCache = [];
 let pagosCache = [];
 let configuracionEstudio = null;
+// Perfiles (tabla `perfiles`), para armar las opciones del selector de cartera.
+let perfilesCache = [];
+// uuid del usuario logueado (auth.users.id vía supabase.auth.getSession()),
+// usado para la opción "Yo". null si no se pudo determinar.
+let usuarioActualId = null;
 
 function mostrarMensajeHonorarios(texto, tipo = 'exito') {
   if (!elHonorariosMensaje) return;
@@ -104,6 +123,80 @@ function esEnero() {
   return new Date().getMonth() === 0;
 }
 
+// --- Usuario logueado y catálogo de perfiles, para "Ver cartera de" -------
+
+async function cargarUsuarioActual() {
+  try {
+    const { data, error } = await supabaseHonorarios.auth.getSession();
+    if (error) throw error;
+    usuarioActualId = data?.session?.user?.id ?? null;
+  } catch (error) {
+    console.error('Error al obtener el usuario logueado:', error);
+    usuarioActualId = null;
+  }
+}
+
+async function cargarPerfiles() {
+  const { data, error } = await supabaseHonorarios.from('perfiles').select('id, nombre').order('nombre');
+  if (error) throw error;
+  perfilesCache = (data || []).filter((perfil) => perfil.nombre);
+}
+
+// Arma las opciones "Yo" / cada perfil / "Todos". Si ya había una selección
+// (por ejemplo, se volvió a esta pestaña), la respetamos; si es la primera
+// vez que se arma el selector, arranca en "Yo" (confirmado por el usuario).
+function poblarFiltroCartera() {
+  if (!elFiltroCartera) return;
+
+  const seleccionActual = elFiltroCartera.value;
+  elFiltroCartera.innerHTML = '';
+
+  const opcionYo = document.createElement('option');
+  opcionYo.value = VALOR_CARTERA_YO;
+  opcionYo.textContent = 'Yo';
+  elFiltroCartera.appendChild(opcionYo);
+
+  for (const perfil of perfilesCache) {
+    const opcion = document.createElement('option');
+    opcion.value = perfil.id;
+    opcion.textContent = perfil.nombre;
+    elFiltroCartera.appendChild(opcion);
+  }
+
+  const opcionTodos = document.createElement('option');
+  opcionTodos.value = VALOR_CARTERA_TODOS;
+  opcionTodos.textContent = 'Todos';
+  elFiltroCartera.appendChild(opcionTodos);
+
+  const sigueExistiendo = [...elFiltroCartera.options].some((o) => o.value === seleccionActual);
+  elFiltroCartera.value = sigueExistiendo ? seleccionActual : VALOR_CARTERA_YO;
+}
+
+if (elFiltroCartera) {
+  elFiltroCartera.addEventListener('change', () => {
+    dibujarTablaHonorarios();
+    dibujarSeccionHonorariosAnual();
+  });
+}
+
+// Clientes con responsable_id NULL (los que no tenían un match exacto en el
+// backfill, ver schema.sql sección 15.1): no se les puede atribuir a nadie
+// en particular, así que solo aparecen en "Todos" -- mismo criterio que
+// js/presentaciones.js.
+function filtrarClientesPorCartera(clientes) {
+  const seleccion = elFiltroCartera?.value || VALOR_CARTERA_YO;
+
+  if (seleccion === VALOR_CARTERA_TODOS) return clientes;
+
+  if (seleccion === VALOR_CARTERA_YO) {
+    if (!usuarioActualId) return [];
+    return clientes.filter((c) => c.responsable_id === usuarioActualId);
+  }
+
+  // Un perfil puntual elegido del selector (value = uuid del perfil).
+  return clientes.filter((c) => c.responsable_id === seleccion);
+}
+
 // --- Carga inicial -------------------------------------------------------
 
 async function cargarHonorarios() {
@@ -118,7 +211,7 @@ async function cargarHonorarios() {
     ] = await Promise.all([
       supabaseHonorarios
         .from('clientes')
-        .select('id, razon_social, ruc, cierre_fiscal_mes, membrete_nombre, membrete_direccion, membrete_telefono')
+        .select('id, razon_social, ruc, cierre_fiscal_mes, membrete_nombre, membrete_direccion, membrete_telefono, responsable_id')
         .order('razon_social'),
       supabaseHonorarios.from('honorarios').select('*'),
       supabaseHonorarios.from('pagos_honorarios').select('*').order('fecha_pago', { ascending: false }),
@@ -134,6 +227,9 @@ async function cargarHonorarios() {
     honorariosCache = honorarios || [];
     pagosCache = pagos || [];
     configuracionEstudio = configuracion || null;
+
+    await Promise.all([cargarUsuarioActual(), cargarPerfiles()]);
+    poblarFiltroCartera();
 
     dibujarTablaHonorarios();
     dibujarSeccionHonorariosAnual();
@@ -217,8 +313,11 @@ function dibujarBadgeEstado(resultado) {
 function dibujarTablaHonorarios() {
   elTablaHonorariosBody.innerHTML = '';
 
+  // Primero se filtra por cartera y, sobre ese resultado, por la búsqueda
+  // de nombre/RUC -- las dos se combinan, no se reemplazan entre sí.
+  const clientesDeLaCartera = filtrarClientesPorCartera(clientesCacheHonorarios);
   const busqueda = elHonorariosBuscar.value.trim().toLowerCase();
-  const clientesFiltrados = clientesCacheHonorarios.filter((cliente) => {
+  const clientesFiltrados = clientesDeLaCartera.filter((cliente) => {
     if (!busqueda) return true;
     return (
       cliente.razon_social.toLowerCase().includes(busqueda) ||
@@ -280,7 +379,9 @@ function dibujarSeccionHonorariosAnual() {
   elSeccionHonorariosAnual.classList.remove('oculto');
   elTablaHonorariosAnualBody.innerHTML = '';
 
-  const clientesConCuotaAnual = clientesCacheHonorarios.filter((cliente) => {
+  // Misma cartera elegida arriba para la tabla principal -- esta sección no
+  // tiene su propio buscador, solo hereda el filtro de cartera.
+  const clientesConCuotaAnual = filtrarClientesPorCartera(clientesCacheHonorarios).filter((cliente) => {
     const honorario = honorariosCache.find((h) => h.cliente_id === cliente.id);
     return honorario?.monto_anual !== null && honorario?.monto_anual !== undefined;
   });

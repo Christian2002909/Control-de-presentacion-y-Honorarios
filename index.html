@@ -191,6 +191,13 @@
               <!-- Se arma dinámicamente desde js/historial.js: desde 2022 hasta el año actual -->
             </select>
           </div>
+          <div class="fila-form">
+            <label for="historial-filtro-cartera">Ver cartera de</label>
+            <select id="historial-filtro-cartera">
+              <!-- Las opciones se arman dinámicamente desde js/historial.js:
+                   "Yo", una por cada perfil (tabla perfiles) y "Todos". -->
+            </select>
+          </div>
         </div>
         <div id="historial-mensaje" class="mensaje mensaje-error oculto"></div>
         <div id="historial-grupos">
@@ -214,9 +221,18 @@
            en vez de guardar al toque, despliega un mini-formulario). -->
       <section class="tarjeta">
         <h2>Honorarios por Cliente</h2>
-        <div class="fila-form">
-          <label for="honorarios-buscar">Buscar cliente</label>
-          <input type="search" id="honorarios-buscar" placeholder="Nombre o RUC..." />
+        <div class="fila-form-filtros-pagos">
+          <div class="fila-form">
+            <label for="honorarios-buscar">Buscar cliente</label>
+            <input type="search" id="honorarios-buscar" placeholder="Nombre o RUC..." />
+          </div>
+          <div class="fila-form">
+            <label for="honorarios-filtro-cartera">Ver cartera de</label>
+            <select id="honorarios-filtro-cartera">
+              <!-- Las opciones se arman dinámicamente desde js/honorarios.js:
+                   "Yo", una por cada perfil (tabla perfiles) y "Todos". -->
+            </select>
+          </div>
         </div>
         <div class="tabla-scroll">
           <table class="tabla-clientes">
