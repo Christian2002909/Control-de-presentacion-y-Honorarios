@@ -96,7 +96,9 @@
 
           <div class="fila-form">
             <label for="cliente-responsable">Responsable</label>
-            <input type="text" id="cliente-responsable" placeholder="Ej: Nombre del responsable" spellcheck="true" required />
+            <select id="cliente-responsable" required>
+              <!-- Las opciones se arman dinámicamente desde js/clientes.js, una por cada perfil de la tabla `perfiles` -->
+            </select>
           </div>
 
           <div class="fila-form">
@@ -134,23 +136,6 @@
             <input type="number" id="cliente-honorario-anual" min="1" step="1" placeholder="Ej: 150000" />
           </div>
 
-          <h3 class="subtitulo-form">Membrete para la ficha de pago (opcional)</h3>
-
-          <div class="fila-form">
-            <label for="cliente-membrete-nombre">Nombre del estudio/oficina</label>
-            <input type="text" id="cliente-membrete-nombre" placeholder="Se usa el general si se deja vacío" spellcheck="true" />
-          </div>
-
-          <div class="fila-form">
-            <label for="cliente-membrete-direccion">Dirección</label>
-            <input type="text" id="cliente-membrete-direccion" spellcheck="true" />
-          </div>
-
-          <div class="fila-form">
-            <label for="cliente-membrete-telefono">Teléfono</label>
-            <input type="text" id="cliente-membrete-telefono" spellcheck="true" />
-          </div>
-
           <div class="acciones-form">
             <button type="submit" class="boton boton-primario">Guardar</button>
             <button type="button" id="btn-cancelar" class="boton boton-secundario">Limpiar</button>
@@ -171,7 +156,7 @@
           <thead>
             <tr>
               <th>Cliente</th>
-              <th>Obligación</th>
+              <th id="calendario-th-obligacion">Obligación</th>
               <th>Período</th>
               <th>Vencimiento</th>
             </tr>
@@ -365,49 +350,102 @@
     <!-- VISTA: Configuración           -->
     <!-- ============================== -->
     <section id="vista-configuracion" class="vista oculto">
-      <section class="tarjeta">
-        <h2>Configuración</h2>
-        <div class="fila-form">
-          <label>Tema</label>
-          <div class="grupo-radio">
-            <label class="opcion-radio">
-              <input type="radio" name="tema" id="tema-claro" value="claro" />
-              Claro
-            </label>
-            <label class="opcion-radio">
-              <input type="radio" name="tema" id="tema-oscuro" value="oscuro" />
-              Oscuro
-            </label>
-          </div>
-          <small>Se guarda en esta computadora; cada persona puede elegir el suyo.</small>
-        </div>
-      </section>
 
-      <section class="tarjeta">
-        <h2>Membrete General (Ficha de Pago)</h2>
-        <div id="configuracion-estudio-mensaje" class="mensaje oculto"></div>
-        <form id="form-configuracion-estudio">
+      <!-- Sub-navegación interna de Configuración: mismo patrón visual que
+           el menú principal (nav-boton/activo), un nivel adentro. Se
+           muestra/oculta con JS simple en js/configuracion.js, sin usar
+           mostrarVista (eso es solo para vistas completas). -->
+      <div class="config-tabs">
+        <button type="button" class="config-tab-boton activo" data-config-tab="config-tab-tema">Tema</button>
+        <button type="button" class="config-tab-boton" data-config-tab="config-tab-membrete">Membrete</button>
+        <button type="button" class="config-tab-boton" data-config-tab="config-tab-paneles">Paneles</button>
+      </div>
+
+      <div id="config-tab-tema" class="config-tab-panel">
+        <section class="tarjeta">
+          <h2>Configuración</h2>
           <div class="fila-form">
-            <label for="config-nombre-estudio">Nombre del Estudio</label>
-            <input type="text" id="config-nombre-estudio" placeholder="Ej: Estudio Contable BZ" spellcheck="true" />
+            <label>Tema</label>
+            <div class="grupo-radio">
+              <label class="opcion-radio">
+                <input type="radio" name="tema" id="tema-claro" value="claro" />
+                Claro
+              </label>
+              <label class="opcion-radio">
+                <input type="radio" name="tema" id="tema-oscuro" value="oscuro" />
+                Oscuro
+              </label>
+            </div>
+            <small>Se guarda en esta computadora; cada persona puede elegir el suyo.</small>
+          </div>
+        </section>
+      </div>
+
+      <div id="config-tab-membrete" class="config-tab-panel oculto">
+        <section class="tarjeta">
+          <h2>Membrete General (Ficha de Pago)</h2>
+          <div id="configuracion-estudio-mensaje" class="mensaje oculto"></div>
+          <form id="form-configuracion-estudio">
+            <div class="fila-form">
+              <label for="config-nombre-estudio">Nombre del Estudio</label>
+              <input type="text" id="config-nombre-estudio" placeholder="Ej: Estudio Contable BZ" spellcheck="true" />
+            </div>
+            <div class="fila-form">
+              <label for="config-direccion">Dirección</label>
+              <input type="text" id="config-direccion" spellcheck="true" />
+            </div>
+            <div class="fila-form">
+              <label for="config-telefono">Teléfono</label>
+              <input type="text" id="config-telefono" spellcheck="true" />
+            </div>
+            <div class="fila-form">
+              <label for="config-nota-vencimiento">Nota de Vencimiento</label>
+              <input type="text" id="config-nota-vencimiento" placeholder="Ej: Vencimiento: 1 al 10 de cada mes" spellcheck="true" />
+            </div>
+            <div class="fila-form">
+              <label for="config-logo">Logo del Estudio</label>
+              <input type="file" id="config-logo" accept="image/*" />
+              <img id="config-logo-preview" class="logo-preview oculto" alt="Logo actual del estudio" />
+            </div>
+            <div class="acciones-form">
+              <button type="submit" class="boton boton-primario">Guardar Membrete</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <div id="config-tab-paneles" class="config-tab-panel oculto">
+        <section class="tarjeta">
+          <h2>Paneles</h2>
+          <div id="configuracion-paneles-mensaje" class="mensaje oculto"></div>
+          <div class="fila-form">
+            <label class="opcion-checkbox">
+              <input type="checkbox" id="panel-calendario-nuevo-ejercicio" />
+              Mostrar aviso de obligaciones anuales en enero (Calendario)
+            </label>
           </div>
           <div class="fila-form">
-            <label for="config-direccion">Dirección</label>
-            <input type="text" id="config-direccion" spellcheck="true" />
+            <label class="opcion-checkbox">
+              <input type="checkbox" id="panel-calendario-columna-obligacion" />
+              Mostrar la columna "Obligación" en la tabla de Calendario
+            </label>
           </div>
           <div class="fila-form">
-            <label for="config-telefono">Teléfono</label>
-            <input type="text" id="config-telefono" spellcheck="true" />
+            <label class="opcion-checkbox">
+              <input type="checkbox" id="panel-rg90-visible" />
+              Mostrar RG 90 (Mensual y Anual) en los filtros y en los checkboxes de Clientes
+            </label>
           </div>
           <div class="fila-form">
-            <label for="config-nota-vencimiento">Nota de Vencimiento</label>
-            <input type="text" id="config-nota-vencimiento" placeholder="Ej: Vencimiento: 1 al 10 de cada mes" spellcheck="true" />
+            <label class="opcion-checkbox">
+              <input type="checkbox" id="panel-honorarios-cuota-anual" />
+              Mostrar la sección de cuota anual en Honorarios
+            </label>
+            <small>Todavía sin efecto: la sección de cuota anual de Honorarios que este panel va a controlar se agrega en otro trabajo aparte.</small>
           </div>
-          <div class="acciones-form">
-            <button type="submit" class="boton boton-primario">Guardar Membrete</button>
-          </div>
-        </form>
-      </section>
+        </section>
+      </div>
+
     </section>
 
   </main>

@@ -815,13 +815,20 @@ comment on table public.perfiles is
 
 alter table public.perfiles enable row level security;
 
+-- Antes cada usuario solo podía leer SU PROPIO perfil (using (id =
+-- auth.uid())). Se amplía a "cualquier autenticado puede leer cualquier
+-- perfil" porque la pantalla de Clientes necesita listar los nombres de
+-- todos los perfiles para armar el <select> de "Responsable" -- sigue sin
+-- exponerse nada a `anon`. Se elimina la policy vieja por nombre porque
+-- una policy con el mismo nombre no actualiza su condición sola.
 drop policy if exists "perfiles_leer_propio" on public.perfiles;
+drop policy if exists "perfiles_lectura_autenticados" on public.perfiles;
 
-create policy "perfiles_leer_propio"
+create policy "perfiles_lectura_autenticados"
     on public.perfiles
     for select
     to authenticated
-    using (id = auth.uid());
+    using (true);
 
 grant select on public.perfiles to authenticated;
 
@@ -842,14 +849,59 @@ create table if not exists public.configuracion_estudio (
     telefono          text,
     nota_vencimiento  text default 'Vencimiento: 1 al 10 de cada mes',
 
+    -- Logo del estudio para la ficha de pago, guardado como base64 (sin
+    -- Supabase Storage/buckets: es una sola imagen chica, la fila única de
+    -- esta tabla alcanza). NULL si todavía no se cargó ninguno.
+    logo_base64       text,
+
+    -- Interruptores para mostrar/ocultar paneles opcionales del sistema.
+    -- Todos arrancan en `true` (default) para no cambiar el comportamiento
+    -- actual de nadie hasta que alguien los apague a mano desde la pestaña
+    -- "Paneles" de Configuración.
+    panel_calendario_nuevo_ejercicio   boolean not null default true,
+    panel_calendario_columna_obligacion boolean not null default true,
+    panel_rg90_visible                 boolean not null default true,
+    -- OJO: esta columna todavía no está conectada a ninguna pantalla. La
+    -- sección de "cuota anual" de Honorarios que debería controlar se
+    -- construye en un trabajo aparte (Tanda 4) que todavía no existe en el
+    -- código; por ahora el switch guarda el valor en la base y nada más.
+    panel_honorarios_cuota_anual       boolean not null default true,
+
     updated_at        timestamptz not null default now(),
 
     constraint configuracion_estudio_singleton
         check (id = 1)
 );
 
+-- Migración para bases ya existentes creadas antes de estas columnas (la
+-- CREATE TABLE de arriba ya las incluye para instalaciones nuevas).
+alter table public.configuracion_estudio
+    add column if not exists logo_base64 text;
+
+alter table public.configuracion_estudio
+    add column if not exists panel_calendario_nuevo_ejercicio boolean not null default true;
+
+alter table public.configuracion_estudio
+    add column if not exists panel_calendario_columna_obligacion boolean not null default true;
+
+alter table public.configuracion_estudio
+    add column if not exists panel_rg90_visible boolean not null default true;
+
+alter table public.configuracion_estudio
+    add column if not exists panel_honorarios_cuota_anual boolean not null default true;
+
 comment on table public.configuracion_estudio is
-    'Membrete general del estudio para la ficha de pago (una sola fila, id=1). Un cliente puntual puede tener su propio membrete en clientes.membrete_*, que pisa a este.';
+    'Membrete general del estudio para la ficha de pago (una sola fila, id=1). Un cliente puntual puede tener su propio membrete en clientes.membrete_*, que pisa a este. También guarda los switches de paneles opcionales (panel_*).';
+comment on column public.configuracion_estudio.logo_base64 is
+    'Logo del estudio para la ficha de pago, codificado en base64 (sin Storage/buckets). NULL si no se cargó ninguno.';
+comment on column public.configuracion_estudio.panel_calendario_nuevo_ejercicio is
+    'Si es false, Calendario no muestra la sección "Obligaciones Anuales - Nuevo Ejercicio" en enero aunque corresponda por fecha.';
+comment on column public.configuracion_estudio.panel_calendario_columna_obligacion is
+    'Si es false, la tabla de Calendario no muestra la columna "Obligación".';
+comment on column public.configuracion_estudio.panel_rg90_visible is
+    'Si es false, RG90_MENSUAL/RG90_ANUAL se excluyen de los filtros de Obligación (Presentaciones/Historial) y de los checkboxes de asignación de obligaciones (Clientes).';
+comment on column public.configuracion_estudio.panel_honorarios_cuota_anual is
+    'Switch guardado para uso futuro: todavía NO controla ninguna pantalla. La sección de cuota anual de Honorarios que debería mostrar/ocultar se implementa en un trabajo aparte.';
 
 -- Fila única, creada una sola vez (si ya existe, no se toca).
 insert into public.configuracion_estudio (id)

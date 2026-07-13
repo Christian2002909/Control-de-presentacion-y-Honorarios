@@ -31,6 +31,32 @@ const elSinVencimientos = document.getElementById('sin-vencimientos');
 const elCalendarioMensaje = document.getElementById('calendario-mensaje');
 const elSeccionAnualesNuevoEjercicio = document.getElementById('seccion-anuales-nuevo-ejercicio');
 const elTablaAnualesNuevoEjercicioBody = document.getElementById('tabla-anuales-nuevo-ejercicio-body');
+const elThObligacion = document.getElementById('calendario-th-obligacion');
+
+// Switches de Configuración > Paneles (tabla configuracion_estudio). Arrancan
+// en true para no ocultar nada mientras todavía no se cargó la config real.
+let panelNuevoEjercicioVisible = true;
+let panelColumnaObligacionVisible = true;
+
+async function cargarPanelesCalendario() {
+  if (!supabaseCalendario) return;
+
+  const { data, error } = await supabaseCalendario
+    .from('configuracion_estudio')
+    .select('panel_calendario_nuevo_ejercicio, panel_calendario_columna_obligacion')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error al cargar los paneles de Configuración:', error);
+    return;
+  }
+
+  panelNuevoEjercicioVisible = data?.panel_calendario_nuevo_ejercicio ?? true;
+  panelColumnaObligacionVisible = data?.panel_calendario_columna_obligacion ?? true;
+
+  if (elThObligacion) elThObligacion.classList.toggle('oculto', !panelColumnaObligacionVisible);
+}
 
 // Revisa, para cada obligación que el contador le asignó a cada cliente
 // (tabla cliente_obligaciones, configurada desde la pantalla de Clientes),
@@ -109,7 +135,7 @@ async function cargarCalendario() {
   if (!supabaseCalendario) return;
 
   try {
-    await asegurarVencimientosDelPeriodoVigente();
+    await Promise.all([asegurarVencimientosDelPeriodoVigente(), cargarPanelesCalendario()]);
 
     const [
       { data: vencimientos, error: errorVencimientos },
@@ -161,7 +187,7 @@ async function cargarCalendario() {
     // un ejercicio nuevo para trabajar, sin esperar a que se acerque la
     // fecha para que aparezcan en la lista principal.
     const esEnero = hoy.getMonth() === 0;
-    const anualesNuevoEjercicio = esEnero
+    const anualesNuevoEjercicio = esEnero && panelNuevoEjercicioVisible
       ? pendientes.filter((v) => v.obligaciones?.periodicidad === 'anual' && !venceEsteMes.includes(v))
       : [];
 
@@ -199,7 +225,7 @@ function dibujarTablaCalendario(filas) {
 
     tr.innerHTML = `
       <td>${escaparHtmlCalendario(fila.clientes?.razon_social)}</td>
-      <td>${escaparHtmlCalendario(fila.obligaciones?.nombre)}</td>
+      <td class="${panelColumnaObligacionVisible ? '' : 'oculto'}">${escaparHtmlCalendario(fila.obligaciones?.nombre)}</td>
       <td>${formatearPeriodoVisible(fila.periodo, fila.obligaciones?.periodicidad)}</td>
       <td class="${estaVencido ? 'fecha-vencida' : ''}">${formatearFechaVisible(fila.fecha_vencimiento)}</td>
     `;

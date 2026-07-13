@@ -30,15 +30,20 @@ let obligacionesCache = [];
 // --- Filtro por obligación ---------------------------------------------
 
 async function cargarCatalogoObligaciones() {
-  const { data, error } = await supabaseHistorial
-    .from('obligaciones')
-    .select('*')
-    .neq('periodicidad', 'manual')
-    .order('id');
+  const [{ data, error }, { data: configuracion, error: errorConfiguracion }] = await Promise.all([
+    supabaseHistorial.from('obligaciones').select('*').neq('periodicidad', 'manual').order('id'),
+    supabaseHistorial.from('configuracion_estudio').select('panel_rg90_visible').eq('id', 1).maybeSingle(),
+  ]);
 
   if (error) throw error;
 
-  obligacionesCache = data || [];
+  // Si falló la lectura de configuración, no ocultamos nada por un error
+  // transitorio de una tabla que no es la esencial de esta pantalla.
+  const panelRg90Visible = errorConfiguracion ? true : (configuracion?.panel_rg90_visible ?? true);
+
+  obligacionesCache = panelRg90Visible
+    ? (data || [])
+    : (data || []).filter((o) => o.codigo !== 'RG90_MENSUAL' && o.codigo !== 'RG90_ANUAL');
 
   const seleccionActual = elFiltroObligacion.value;
   elFiltroObligacion.innerHTML = '';
