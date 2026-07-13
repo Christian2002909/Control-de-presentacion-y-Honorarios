@@ -464,6 +464,58 @@ input[type='date'] {
   overflow-x: auto;
 }
 
+/* --- Filas-formulario expandibles de Honorarios -------------------------
+   Fila que se despliega debajo de la fila de un cliente (o de un pago) en
+   Honorarios para registrar/editar un pago, editar la cuota pactada, o ver
+   el detalle de un cliente. Mismo espíritu que el checkbox "Presentado" de
+   Presentaciones, pero acá el check despliega un formulario en vez de
+   guardar directamente. */
+.fila-expandible td {
+  background-color: var(--color-fondo);
+  padding: 16px;
+}
+
+.fila-form-titulo {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.grilla-form-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.grilla-form-inline .fila-form {
+  flex: 1 1 180px;
+  margin-bottom: 0;
+}
+
+.grupo-periodo-mensual {
+  display: flex;
+  gap: 8px;
+}
+
+.grupo-periodo-mensual select {
+  flex: 1;
+}
+
+.detalle-cliente-inline p {
+  margin: 4px 0 12px;
+}
+
+.fila-form-filtros-pagos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-bottom: 14px;
+}
+
+.fila-form-filtros-pagos .fila-form {
+  margin-bottom: 0;
+  flex: 0 1 200px;
+}
+
 /* --- Ficha de pago (impresión / PDF) ------------------------------------
    #ficha-pago-imprimir queda oculto en pantalla (ver .oculto) y se llena
    dinámicamente desde js/honorarios.js justo antes de llamar a
@@ -482,6 +534,12 @@ input[type='date'] {
 .ficha-membrete h1 {
   font-size: 20px;
   margin: 0 0 4px;
+}
+
+.ficha-logo {
+  max-height: 60px;
+  max-width: 160px;
+  object-fit: contain;
 }
 
 .ficha-membrete p {

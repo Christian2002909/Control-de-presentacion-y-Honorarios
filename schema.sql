@@ -621,7 +621,7 @@ alter table public.pagos_honorarios add constraint pagos_honorarios_forma_pago_v
     check (forma_pago in ('efectivo', 'transferencia', 'cheque'));
 
 comment on table public.pagos_honorarios is
-    'Historial de pagos de honorarios por cliente. Nunca se actualiza/borra un pago histórico; los pagos parciales se registran como filas adicionales del mismo período. tipo_honorario distingue si el pago es de la cuota mensual o la anual.';
+    'Historial de pagos de honorarios por cliente. Los pagos parciales se registran como filas adicionales del mismo período. tipo_honorario distingue si el pago es de la cuota mensual o la anual. La pantalla de Honorarios permite corregir (UPDATE) un pago ya cargado -monto/fecha/forma de pago/recibo- por si se cargó mal; nunca se borra uno.';
 
 -- Se recrea (en vez de "if not exists") porque el índice viejo no incluía
 -- tipo_honorario; "create index if not exists" no actualiza la definición
@@ -861,10 +861,9 @@ create table if not exists public.configuracion_estudio (
     panel_calendario_nuevo_ejercicio   boolean not null default true,
     panel_calendario_columna_obligacion boolean not null default true,
     panel_rg90_visible                 boolean not null default true,
-    -- OJO: esta columna todavía no está conectada a ninguna pantalla. La
-    -- sección de "cuota anual" de Honorarios que debería controlar se
-    -- construye en un trabajo aparte (Tanda 4) que todavía no existe en el
-    -- código; por ahora el switch guarda el valor en la base y nada más.
+    -- Conectada en js/honorarios.js: si es false, oculta la sección de
+    -- cuota anual de Honorarios (que de por sí solo se muestra desde
+    -- febrero, ver esEnero() en ese archivo).
     panel_honorarios_cuota_anual       boolean not null default true,
 
     updated_at        timestamptz not null default now(),
@@ -901,7 +900,7 @@ comment on column public.configuracion_estudio.panel_calendario_columna_obligaci
 comment on column public.configuracion_estudio.panel_rg90_visible is
     'Si es false, RG90_MENSUAL/RG90_ANUAL se excluyen de los filtros de Obligación (Presentaciones/Historial) y de los checkboxes de asignación de obligaciones (Clientes).';
 comment on column public.configuracion_estudio.panel_honorarios_cuota_anual is
-    'Switch guardado para uso futuro: todavía NO controla ninguna pantalla. La sección de cuota anual de Honorarios que debería mostrar/ocultar se implementa en un trabajo aparte.';
+    'Si es false, Honorarios no muestra la sección de cuota anual aunque corresponda por fecha (desde febrero, ver js/honorarios.js).';
 
 -- Fila única, creada una sola vez (si ya existe, no se toca).
 insert into public.configuracion_estudio (id)

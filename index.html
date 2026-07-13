@@ -239,7 +239,11 @@
 
       <div id="honorarios-mensaje" class="mensaje oculto"></div>
 
-      <!-- Honorario pactado por cliente -->
+      <!-- Honorario pactado por cliente. Registrar un pago, editar la cuota
+           pactada y ver el detalle de un cliente se hacen todos desde acá,
+           expandiendo una fila-formulario debajo de la fila del cliente
+           (misma idea que el checkbox "Presentado" de Presentaciones, pero
+           en vez de guardar al toque, despliega un mini-formulario). -->
       <section class="tarjeta">
         <h2>Honorarios por Cliente</h2>
         <div class="fila-form">
@@ -254,7 +258,8 @@
                 <th>Cuota Mensual</th>
                 <th>Cuota Anual</th>
                 <th>Estado</th>
-                <th></th>
+                <th>¿Pagó?</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody id="tabla-honorarios-body">
@@ -265,64 +270,58 @@
         <p id="sin-honorarios" class="sin-datos oculto">No hay clientes que coincidan con la búsqueda.</p>
       </section>
 
-      <!-- Registrar un pago -->
-      <section class="tarjeta">
-        <h2>Registrar Pago</h2>
-        <form id="form-pago">
-          <div class="fila-form">
-            <label for="pago-cliente">Cliente</label>
-            <select id="pago-cliente" required>
-              <option value="">Seleccioná un cliente</option>
-            </select>
-          </div>
-
-          <div class="fila-form">
-            <label for="pago-tipo">Corresponde a</label>
-            <select id="pago-tipo" required>
-              <option value="mensual">Cuota Mensual</option>
-              <option value="anual">Cuota Anual</option>
-            </select>
-          </div>
-
-          <div class="fila-form">
-            <label for="pago-monto">Monto Pagado (Gs.)</label>
-            <input type="number" id="pago-monto" min="1" step="1" required />
-          </div>
-
-          <div class="fila-form">
-            <label for="pago-forma">Forma de Pago</label>
-            <select id="pago-forma" required>
-              <option value="efectivo">Efectivo</option>
-              <option value="transferencia">Transferencia</option>
-              <option value="cheque">Cheque</option>
-            </select>
-          </div>
-
-          <div class="fila-form">
-            <label for="pago-recibo">N° de Recibo</label>
-            <input type="text" id="pago-recibo" placeholder="Ej: 0231" spellcheck="true" />
-          </div>
-
-          <div class="fila-form">
-            <label for="pago-fecha">Fecha de Pago</label>
-            <input type="date" id="pago-fecha" />
-          </div>
-
-          <div class="fila-form">
-            <label for="pago-periodo">Corresponde al período (cualquier fecha del mes/año correspondiente)</label>
-            <input type="date" id="pago-periodo" />
-            <small>Se sugiere solo al elegir el cliente. Cambiala si el pago es de un período anterior.</small>
-          </div>
-
-          <div class="acciones-form">
-            <button type="submit" class="boton boton-primario">Registrar Pago</button>
-          </div>
-        </form>
+      <!-- Cuota Anual: sección aparte, solo visible desde febrero (mismo mes
+           en que la cuota anual empieza a contar como "Debe") y solo si el
+           panel "panel_honorarios_cuota_anual" de Configuración > Paneles
+           está activado. js/honorarios.js la oculta el resto del año o si
+           el panel está apagado. -->
+      <section class="tarjeta oculto" id="seccion-honorarios-anual">
+        <h2>Cuota Anual</h2>
+        <div class="tabla-scroll">
+          <table class="tabla-clientes">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Cuota Anual</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-honorarios-anual-body">
+              <!-- Las filas se agregan dinámicamente desde js/honorarios.js -->
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <!-- Historial de pagos -->
       <section class="tarjeta">
         <h2>Historial de Pagos</h2>
+        <div class="fila-form-filtros-pagos">
+          <div class="fila-form">
+            <label for="pagos-filtro-anio">Año</label>
+            <select id="pagos-filtro-anio">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="fila-form">
+            <label for="pagos-filtro-mes">Mes (cuota mensual)</label>
+            <select id="pagos-filtro-mes">
+              <option value="">Todos</option>
+              <option value="1">Enero</option>
+              <option value="2">Febrero</option>
+              <option value="3">Marzo</option>
+              <option value="4">Abril</option>
+              <option value="5">Mayo</option>
+              <option value="6">Junio</option>
+              <option value="7">Julio</option>
+              <option value="8">Agosto</option>
+              <option value="9">Setiembre</option>
+              <option value="10">Octubre</option>
+              <option value="11">Noviembre</option>
+              <option value="12">Diciembre</option>
+            </select>
+          </div>
+        </div>
         <div class="tabla-scroll">
           <table class="tabla-clientes">
             <thead>
@@ -334,6 +333,7 @@
                 <th>N° Recibo</th>
                 <th>Fecha de Pago</th>
                 <th>Período</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody id="tabla-pagos-body">
@@ -441,7 +441,7 @@
               <input type="checkbox" id="panel-honorarios-cuota-anual" />
               Mostrar la sección de cuota anual en Honorarios
             </label>
-            <small>Todavía sin efecto: la sección de cuota anual de Honorarios que este panel va a controlar se agrega en otro trabajo aparte.</small>
+            <small>La sección solo aparece desde febrero, además de requerir este switch activado (ver js/honorarios.js).</small>
           </div>
         </section>
       </div>
