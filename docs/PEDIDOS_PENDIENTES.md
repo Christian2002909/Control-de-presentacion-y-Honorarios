@@ -41,6 +41,20 @@ Este documento junta, en las palabras del usuario, todo lo que falta implementar
 - [ ] **Ampliar el rango de años visibles**: hoy solo muestra el año actual (mensuales) o actual+anterior (anuales) — se pide un rango más amplio, ejemplo dado por el usuario: 2022, 2023, 2024, 2025, 2026. Definir si es un selector de año o se listan todos esos años a la vez (a confirmar antes de programar).
 - [ ] **Agregar RG 90 al filtro de Obligación** (mensual 955 y anual 956), igual que el resto de las obligaciones — depende de que se agregue primero al catálogo (ver ítem en Calendario).
 
+## Pantalla Honorarios
+
+- [ ] **Sacar el texto de ayuda de arriba** ("La cuota mensual y anual se configuran desde la pantalla de Clientes...") — mismo pedido general de sacar `texto-ayuda`, confirmado también acá.
+- [ ] **Regla de la cuota ANUAL: no cuenta como "Debe" hasta febrero.** CONFIRMADO por el usuario: la cuota anual de honorarios no debe empezar a figurar como pendiente hasta febrero de cada año, sin importar la fecha en que se configuró el honorario de ese cliente (hoy `calcularSaldoPorTipo`/`contarPeriodosAdeudables` cuenta desde `honorarios.created_at`, sin este corte). La cuota MENSUAL sigue su lógica actual (por período mensual), no cambia.
+- [ ] **Editar la cuota del cliente directo desde acá** (sin ir a Clientes): agregar un botón/ícono de editar en la tabla de Honorarios que permita cambiar el monto mensual/anual pactado de ese cliente.
+- [ ] **Editar un pago ya cargado**: poder corregir un pago que ya se registró (monto, fecha, forma de pago, recibo) por si se cargó mal.
+- [ ] **El formulario "Registrar Pago" deja de estar siempre visible en la pantalla** — pasa a ser una acción bajo demanda: al lado de cada cliente hay una casilla para marcar que pagó, y al tildarla se despliega/expande ahí mismo para cargar los datos del pago (monto, forma de pago, recibo, fecha) — mismo patrón que el checkbox de "Presentado" en Presentaciones/Calendario, en vez del formulario grande fijo que hay ahora abajo de la tabla.
+- [ ] **Fecha de Pago: sugerir siempre la fecha de hoy por defecto**, con opción de modificarla (hoy el campo arranca vacío).
+- [ ] **Sacar el campo "Corresponde al período" (el date-picker "cualquier fecha del mes/año correspondiente")** — pasa a resolverse por período (mes/año), no por una fecha suelta dentro del mes. Relacionado con el ítem de abajo (ver por período).
+- [ ] **Agregar una vista para revisar el estado de pago por cliente**: poder ver de un cliente su historial de pagos (número de recibo, cuánto pagó, cuánto debe) todo junto, no solo el resumen de la tabla principal.
+- [ ] **Vista por período con opción de corregir fechas atrasadas**: poder ver los pagos agrupados/filtrados por período y modificar ahí la fecha de un pago que se cargó tarde o mal.
+- [ ] **N° de Recibo confirmado como opcional** — ya está así en el sistema (nullable, no se exige), no requiere cambio, solo se reafirma que está bien como está.
+- [ ] **Todos los ejemplos/placeholders genéricos** — mismo pedido general ya anotado abajo, reforzado también para esta pantalla.
+
 ## General (todo el sistema)
 
 - [ ] **Sacar todos los textos de ayuda/explicación** (clase `texto-ayuda`, hay 8 bloques en `index.html`: Honorarios ×2, Calendario ×2, y 4 más en otras pantallas a repasar uno por uno) — no tienen que estar en el sistema.
