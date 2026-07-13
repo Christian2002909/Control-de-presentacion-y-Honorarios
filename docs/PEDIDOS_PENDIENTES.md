@@ -23,6 +23,7 @@ Este documento junta, en las palabras del usuario, todo lo que falta implementar
 - [ ] **El "Membrete General" existente pasa a ser el único membrete del sistema** (ya no hay override por cliente — ver ítem de arriba en Clientes). Se usa para todos los clientes por igual al generar cualquier ficha de pago.
 - [ ] **Agregar soporte de logo** (imagen) a esa misma sección de membrete — hoy solo tiene nombre/dirección/teléfono/nota de vencimiento, todo texto.
 - [ ] **Nueva capacidad general: elegir qué paneles/opciones se muestran en el sistema.** Confirmado por el usuario (entre dos opciones que le di): no es solo sobre el logo — quiere poder activar/desactivar o mostrar-ocultar secciones/funciones de la app desde Configuración. **Alcance todavía impreciso**: falta definir exactamente qué paneles/opciones concretas se podrían ocultar (¿pantallas enteras? ¿columnas de una tabla? ¿secciones dentro de una pantalla?) — retomar y precisar con el usuario antes de programarlo, no asumir el alcance.
+- [ ] **Reorganizar la pantalla Configuración con pestañas arriba** (no todo apilado en una sola vista larga): al menos "Tema", "Membrete" y "Paneles" cada una como su propia pestaña dentro de Configuración, igual que las pestañas del menú principal pero un nivel adentro — se ve una sección a la vez, no todas juntas. Confirmado por el usuario entre 3 opciones (pestañas, acordeón, menú lateral); eligió pestañas.
 
 ## Pantalla Calendario
 
