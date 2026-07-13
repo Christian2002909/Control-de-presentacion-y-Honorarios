@@ -70,3 +70,26 @@ Este documento junta, en las palabras del usuario, todo lo que falta implementar
 
 - [x] **Corrector ortográfico**: que todos los campos de texto de la aplicación (no solo login) tengan corrección/sugerencia de palabras mientras se escribe, como en un navegador normal. (Se agregó `spellcheck="true"` a los 12 `<input type="text">` de `index.html`; no hay `<textarea>` en el sistema. No se tocaron los inputs number/date/email/password, según lo pedido.)
 - [x] **Formato de miles con punto en montos**: los campos de dinero (cuota mensual/anual de honorarios, monto de cada pago) deben mostrarse y/o escribirse con el punto separador de miles para que se lea claro cuánto es — ejemplo: `100.000` en vez de `100000`. (Revisado: `js/honorarios.js` ya formatea con `Number(monto).toLocaleString('es-PY')` en todos los lugares donde se muestra un monto en tablas/listados/ficha de pago — Honorarios por Cliente, Historial de Pagos, y ambas tablas de la ficha imprimible. Los inputs (`cliente-honorario-mensual`, `cliente-honorario-anual`, `pago-monto`) se dejaron como `type="number"` sin máscara, como indica el pedido.)
+
+---
+
+# Segunda ronda de pedidos (batch nuevo, sin codificar todavía)
+
+## Presentaciones reemplaza a Calendario (rediseño grande, todavía sin cerrar del todo)
+
+Idea nueva del usuario, todavía no confirmada al 100% en un punto — no arrancar a programar esto hasta cerrar el detalle marcado abajo.
+
+- [ ] **Se elimina la pestaña Calendario como pantalla aparte.** Su función (mostrar qué vence) se absorbe dentro de Presentaciones.
+- [ ] **Presentaciones deja de filtrar por una sola Obligación a la vez** (se saca el `<select>` de Obligación). **CONFIRMADO por el usuario**: pasa a mostrar, para cada cliente, TODAS las obligaciones que tiene pendientes/vigentes ahora mismo, juntas — no una vista separada por obligación ni una opción "Todas", el filtro desaparece directamente.
+- [ ] **Las obligaciones anuales (Renta: IRE Simple/General o IRP según corresponda, y RG 90 Anual) aparecen como una fila pendiente más desde que arranca su ejercicio (enero), con su fecha real de vencimiento** (aunque sea marzo/abril) — igual que se ve en el propio Marangatu. **CONFIRMADO por el usuario**: no hace falta una sección aparte de "aviso" como tiene hoy Calendario en enero — es simplemente una fila normal más, que aparece y sigue apareciendo como pendiente hasta que se marca presentada.
+- [ ] **PUNTO SIN CERRAR (no asumir, preguntar de nuevo antes de programar)**: hoy Presentaciones agrupa por "VENCIMIENTO N - FECHA D" (un solo día por grupo, porque solo mostraba una obligación a la vez). Si un cliente tiene, por ejemplo, IVA (vence el día 9) y en enero también le aparece su Renta (vence en marzo, otro día distinto), esas dos ya no comparten fecha. Se le planteó al usuario que la única forma prolija de resolver esto es una fila por **cliente + obligación pendiente** (como ya hace Calendario hoy: columna Obligación, una fila por cada combinación pendiente), agrupadas por terminación de RUC pero cada obligación con su propia fecha — el usuario todavía no confirmó si es así como lo imagina o si tiene otra idea. Confirmar esto antes de tocar código.
+- Todo lo que hoy hace `js/calendario.js` (generación automática de vencimientos, cálculo de fechas, los paneles `panel_calendario_nuevo_ejercicio`/`panel_calendario_columna_obligacion` de Configuración) hay que revisarlo: probablemente se fusiona con la lógica de `js/presentaciones.js` en vez de vivir en un archivo aparte, pero esto es una decisión de implementación a tomar recién cuando se cierre el diseño de arriba.
+
+## Importar/exportar Excel (Clientes y Honorarios)
+
+- [ ] **Importar Excel de Clientes**: subir un archivo (`.xlsx`) con una lista de clientes para cargarlos todos de una, en vez de uno por uno a mano. **CONFIRMADO por el usuario**: si el RUC de una fila ya existe en el sistema, se ACTUALIZAN sus datos con lo que traiga el Excel (no se duplica); si no existe, se crea nuevo. Falta definir: qué columnas exactas debe tener la planilla (RUC, razón social, terminación de RUC, responsable, cierre fiscal, qué obligaciones tiene asignadas, honorarios) y cómo se mapean/validan al importar — a precisar antes de programar.
+- [ ] **Importar Excel de Honorarios — dos cosas confirmadas por el usuario**:
+  - La **cuota** de cada cliente (mensual/anual): un Excel con RUC + monto mensual + monto anual, para configurar de una todos los honorarios pactados.
+  - El **historial de pagos ya hechos**: un Excel con los pagos históricos de cada cliente (fecha, monto, forma de pago, recibo), para no perder el registro que ya tenían en su planilla vieja al migrar a este sistema.
+  - Falta definir el formato exacto de columnas de cada uno de los dos Excel (son archivos distintos, o uno solo con varias hojas) — a precisar antes de programar.
+- [ ] **Exportar a Excel**: **CONFIRMADO por el usuario**, además de importar también hace falta poder exportar — descargar un Excel con los clientes/honorarios actuales del sistema (por ejemplo, para tener una copia o compartirla). Falta definir qué pantallas tienen botón de exportar (¿Clientes? ¿Honorarios? ¿ambas?) y qué columnas exactas lleva cada exportación — a precisar antes de programar.
