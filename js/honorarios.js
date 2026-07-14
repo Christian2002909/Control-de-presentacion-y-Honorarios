@@ -77,7 +77,7 @@ const elHonorariosMensaje = document.getElementById('honorarios-mensaje');
 const elHonorariosBuscar = document.getElementById('honorarios-buscar');
 const elFiltroCartera = document.getElementById('honorarios-filtro-cartera');
 
-const elTablaHonorariosBody = document.getElementById('tabla-honorarios-body');
+const elGruposHonorarios = document.getElementById('tabla-honorarios-grupos');
 const elSinHonorarios = document.getElementById('sin-honorarios');
 
 const elPagosFiltroAnio = document.getElementById('pagos-filtro-anio');
@@ -597,7 +597,7 @@ const HONORARIOS_COLSPAN = 15;
 // Presentaciones): es información de dinero, esconder un cliente por un
 // dato de RUC incompleto sería peor que mostrarlo en un grupo aparte.
 function dibujarTablaHonorarios() {
-  elTablaHonorariosBody.innerHTML = '';
+  elGruposHonorarios.innerHTML = '';
 
   // Primero se filtra por cartera y, sobre ese resultado, por la búsqueda
   // de nombre/RUC -- las dos se combinan, no se reemplazan entre sí.
@@ -639,13 +639,41 @@ function dibujarTablaHonorarios() {
     const clientesDelGrupo = porTerminacion.get(clave)
       .sort((a, b) => a.razon_social.localeCompare(b.razon_social));
 
-    const filaTitulo = document.createElement('tr');
-    filaTitulo.className = 'fila-titulo-grupo-honorarios';
-    const tituloGrupo = clave === CLAVE_SIN_TERMINACION
+    // Un <table> por grupo, cada uno con su propio encabezado (Cliente +
+    // meses) repetido debajo del título -- mismo armado que
+    // dibujarGrupoMensual en js/historial.js, para que ambas pantallas
+    // luzcan igual en vez de un único encabezado arriba de toda la tabla.
+    const grupo = document.createElement('div');
+    grupo.className = 'grupo-vencimiento';
+
+    const encabezadoGrupo = document.createElement('h3');
+    encabezadoGrupo.className = 'grupo-vencimiento-titulo';
+    encabezadoGrupo.textContent = clave === CLAVE_SIN_TERMINACION
       ? 'SIN TERMINACIÓN DE RUC ASIGNADA'
       : `VENCIMIENTO ${clave} - FECHA ${DIA_POR_TERMINACION_RUC[clave]}`;
-    filaTitulo.innerHTML = `<td colspan="${HONORARIOS_COLSPAN}" class="celda-titulo-grupo-honorarios">${tituloGrupo}</td>`;
-    elTablaHonorariosBody.appendChild(filaTitulo);
+    grupo.appendChild(encabezadoGrupo);
+
+    const contenedorScroll = document.createElement('div');
+    contenedorScroll.className = 'tabla-scroll';
+    const tabla = document.createElement('table');
+    tabla.className = 'tabla-clientes tabla-honorarios-grilla';
+    tabla.innerHTML = `
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Ene</th><th>Feb</th><th>Mar</th><th>Abr</th>
+          <th>May</th><th>Jun</th><th>Jul</th><th>Ago</th>
+          <th>Set</th><th>Oct</th><th>Nov</th><th>Dic</th>
+          <th>Anual</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbodyGrupo = tabla.querySelector('tbody');
+    contenedorScroll.appendChild(tabla);
+    grupo.appendChild(contenedorScroll);
+    elGruposHonorarios.appendChild(grupo);
 
     for (const cliente of clientesDelGrupo) {
       const honorario = honorariosCache.find((h) => h.cliente_id === cliente.id);
@@ -731,7 +759,7 @@ function dibujarTablaHonorarios() {
           </select>
         </td>
       `;
-      elTablaHonorariosBody.appendChild(filaCliente);
+      tbodyGrupo.appendChild(filaCliente);
 
       // La fila en sí queda siempre en el flujo normal (nunca con
       // display:none) -- lo que se anima al abrir/cerrar es el wrapper
@@ -748,7 +776,7 @@ function dibujarTablaHonorarios() {
           </div>
         </td>
       `;
-      elTablaHonorariosBody.appendChild(filaExpandible);
+      tbodyGrupo.appendChild(filaExpandible);
     }
   }
 }
@@ -809,21 +837,21 @@ function sincronizarCheckboxGrilla(casilla) {
 // transición se vacía el contenido -- si se vaciara de una, el contenido
 // desaparecería de golpe y no habría nada que "encoger" visualmente.
 function cerrarTodasLasFilasExpandibles() {
-  elTablaHonorariosBody.querySelectorAll('tr.fila-expandible .fila-expandible-grid.abierta').forEach((grid) => {
+  elGruposHonorarios.querySelectorAll('tr.fila-expandible .fila-expandible-grid.abierta').forEach((grid) => {
     grid.classList.remove('abierta');
     grid.addEventListener('transitionend', () => { grid.querySelector('.fila-expandible-interior').innerHTML = ''; }, { once: true });
   });
-  elTablaHonorariosBody.querySelectorAll('input.checkbox-grilla-honorarios').forEach(sincronizarCheckboxGrilla);
+  elGruposHonorarios.querySelectorAll('input.checkbox-grilla-honorarios').forEach(sincronizarCheckboxGrilla);
 }
 
 function cerrarFilaExpandible(clienteId) {
-  const fila = elTablaHonorariosBody.querySelector(`tr.fila-expandible[data-expandible-id="${clienteId}"]`);
+  const fila = elGruposHonorarios.querySelector(`tr.fila-expandible[data-expandible-id="${clienteId}"]`);
   const grid = fila?.querySelector('.fila-expandible-grid');
   if (grid) {
     grid.classList.remove('abierta');
     grid.addEventListener('transitionend', () => { grid.querySelector('.fila-expandible-interior').innerHTML = ''; }, { once: true });
   }
-  elTablaHonorariosBody
+  elGruposHonorarios
     .querySelectorAll(`input.checkbox-grilla-honorarios[data-cliente-id="${clienteId}"]`)
     .forEach(sincronizarCheckboxGrilla);
 }
@@ -834,7 +862,7 @@ function cerrarFilaExpandible(clienteId) {
 // que la transición de grid-template-rows tenga contra qué alto animar.
 function abrirFilaExpandible(clienteId, html) {
   cerrarTodasLasFilasExpandibles();
-  const fila = elTablaHonorariosBody.querySelector(`tr.fila-expandible[data-expandible-id="${clienteId}"]`);
+  const fila = elGruposHonorarios.querySelector(`tr.fila-expandible[data-expandible-id="${clienteId}"]`);
   const grid = fila?.querySelector('.fila-expandible-grid');
   if (!grid) return;
   grid.querySelector('.fila-expandible-interior').innerHTML = html;
@@ -1470,7 +1498,7 @@ function abrirEdicionPagoEnFila(fila, pagoId) {
 
 // --- Manejo de eventos: tabla de Honorarios (fila del cliente) -----------
 
-elTablaHonorariosBody.addEventListener('change', (evento) => {
+elGruposHonorarios.addEventListener('change', (evento) => {
   // Checkbox de un mes de la grilla: tildar uno vacío abre el formulario
   // para cargar ese pago puntual; destildar uno ya pagado abre ESE mismo
   // pago para editarlo/corregirlo (nunca lo borra solo con el checkbox).
@@ -1549,12 +1577,12 @@ elTablaHonorariosBody.addEventListener('change', (evento) => {
 // Formato de miles en vivo para los inputs de dinero de los mini-formularios
 // (pago, editar cuota y congelar deuda), armados dinámicamente dentro de
 // esta tabla.
-elTablaHonorariosBody.addEventListener('input', (evento) => {
+elGruposHonorarios.addEventListener('input', (evento) => {
   const campoDinero = evento.target.closest('.campo-pago-monto, .campo-cuota-mensual, .campo-cuota-anual, .campo-deuda-monto, .campo-gasto-monto');
   if (campoDinero) formatearInputDineroEnVivo(campoDinero);
 });
 
-elTablaHonorariosBody.addEventListener('click', (evento) => {
+elGruposHonorarios.addEventListener('click', (evento) => {
   const botonMarcarDeudaPagada = evento.target.closest('button[data-marcar-deuda-pagada-id]');
   if (botonMarcarDeudaPagada) {
     marcarDeudaCongeladaPagada(Number(botonMarcarDeudaPagada.dataset.marcarDeudaPagadaId));
@@ -1606,7 +1634,7 @@ elTablaHonorariosBody.addEventListener('click', (evento) => {
   }
 });
 
-elTablaHonorariosBody.addEventListener('submit', async (evento) => {
+elGruposHonorarios.addEventListener('submit', async (evento) => {
   const formPago = evento.target.closest('form.form-pago-inline');
   if (formPago) {
     evento.preventDefault();
