@@ -67,8 +67,10 @@ const elFiltroCartera = document.getElementById('honorarios-filtro-cartera');
 
 const elBtnImportarPagos = document.getElementById('btn-importar-pagos-excel');
 const elInputImportarPagos = document.getElementById('input-importar-pagos-excel');
+const elBtnPlantillaPagos = document.getElementById('btn-plantilla-pagos-excel');
 const elBtnImportarGastos = document.getElementById('btn-importar-gastos-excel');
 const elInputImportarGastos = document.getElementById('input-importar-gastos-excel');
+const elBtnPlantillaGastos = document.getElementById('btn-plantilla-gastos-excel');
 const elBtnExportarHonorarios = document.getElementById('btn-exportar-honorarios-excel');
 const elImportarResumenHonorarios = document.getElementById('honorarios-importar-resumen');
 const elImportarResumenHonorariosTitulo = document.getElementById('honorarios-importar-resumen-titulo');
@@ -1788,6 +1790,57 @@ if (elBtnImportarPagos && elInputImportarPagos) {
   });
 }
 
+// --- Plantilla de Excel descargable para Importar Historial de Pagos -----
+//
+// .xlsx vacío/de ejemplo con las mismas columnas exactas que espera
+// importarPagosDesdeExcel (ver comentario grande arriba de esa función):
+// RUC, Corresponde a, Monto, Período - Mes, Período - Año, Forma de Pago,
+// N° de Recibo, Fecha de Pago. Dos filas de ejemplo con datos ficticios
+// genéricos -- una Mensual (con Período - Mes cargado) y una Anual (con
+// Período - Mes vacío, ya que ese importador solo lo exige para la cuota
+// mensual) -- para que quede claro qué valores acepta "Corresponde a"/
+// "Forma de Pago" y cómo se escribe la fecha (dd/mm/aaaa).
+async function descargarPlantillaPagosExcel() {
+  if (elBtnPlantillaPagos) elBtnPlantillaPagos.disabled = true;
+  try {
+    const filas = [
+      {
+        'RUC': '80012345-6',
+        'Corresponde a': 'Mensual',
+        'Monto': 500000,
+        'Período - Mes': 3,
+        'Período - Año': new Date().getFullYear(),
+        'Forma de Pago': 'Efectivo',
+        'N° de Recibo': '0231',
+        'Fecha de Pago': '15/03/2026',
+      },
+      {
+        'RUC': '80099876-1',
+        'Corresponde a': 'Anual',
+        'Monto': 600000,
+        'Período - Mes': '',
+        'Período - Año': new Date().getFullYear(),
+        'Forma de Pago': 'Transferencia',
+        'N° de Recibo': '',
+        'Fecha de Pago': '20/04/2026',
+      },
+    ];
+
+    await descargarComoExcel('plantilla_pagos.xlsx', [{ nombre: 'Historial de Pagos', filas }]);
+  } catch (error) {
+    console.error('Error al descargar la plantilla de Historial de Pagos:', error);
+    if (error instanceof ErrorLibreriaExcelNoDisponible) {
+      mostrarMensajeHonorarios(error.message, 'error');
+    } else {
+      mostrarMensajeHonorarios('No se pudo generar la plantilla de Excel.', 'error');
+    }
+  } finally {
+    if (elBtnPlantillaPagos) elBtnPlantillaPagos.disabled = false;
+  }
+}
+
+if (elBtnPlantillaPagos) elBtnPlantillaPagos.addEventListener('click', descargarPlantillaPagosExcel);
+
 // --- Importar Otros Gastos (opción oculta bajo "Más opciones") -----------
 //
 // Columnas esperadas: "RUC", "Descripción", "Monto", "Fecha del Cargo", y
@@ -1899,6 +1952,57 @@ if (elBtnImportarGastos && elInputImportarGastos) {
     if (archivo) importarOtrosGastosDesdeExcel(archivo);
   });
 }
+
+// --- Plantilla de Excel descargable para Importar Otros Gastos -----------
+//
+// .xlsx vacío/de ejemplo con las mismas columnas exactas que espera
+// importarOtrosGastosDesdeExcel (ver comentario grande arriba de esa
+// función): RUC, Descripción, Monto, Fecha del Cargo obligatorias, y
+// opcionalmente Pagado/Forma de Pago/N° de Recibo/Fecha de Pago. Dos filas
+// de ejemplo con datos ficticios genéricos -- una con "Pagado" en "No"
+// (dejando Forma de Pago/Fecha de Pago vacías) y otra con "Pagado" en "Sí"
+// (con esos dos campos completos, ya que el importador los exige recién
+// cuando Pagado es Sí) -- para que quede claro ese comportamiento.
+async function descargarPlantillaGastosExcel() {
+  if (elBtnPlantillaGastos) elBtnPlantillaGastos.disabled = true;
+  try {
+    const filas = [
+      {
+        'RUC': '80012345-6',
+        'Descripción': 'Trámite de habilitación municipal',
+        'Monto': 150000,
+        'Fecha del Cargo': '10/03/2026',
+        'Pagado': 'No',
+        'Forma de Pago': '',
+        'N° de Recibo': '',
+        'Fecha de Pago': '',
+      },
+      {
+        'RUC': '80099876-1',
+        'Descripción': 'Envío de documentación',
+        'Monto': 80000,
+        'Fecha del Cargo': '05/02/2026',
+        'Pagado': 'Sí',
+        'Forma de Pago': 'Efectivo',
+        'N° de Recibo': '0155',
+        'Fecha de Pago': '06/02/2026',
+      },
+    ];
+
+    await descargarComoExcel('plantilla_otros_gastos.xlsx', [{ nombre: 'Otros Gastos', filas }]);
+  } catch (error) {
+    console.error('Error al descargar la plantilla de Otros Gastos:', error);
+    if (error instanceof ErrorLibreriaExcelNoDisponible) {
+      mostrarMensajeHonorarios(error.message, 'error');
+    } else {
+      mostrarMensajeHonorarios('No se pudo generar la plantilla de Excel.', 'error');
+    }
+  } finally {
+    if (elBtnPlantillaGastos) elBtnPlantillaGastos.disabled = false;
+  }
+}
+
+if (elBtnPlantillaGastos) elBtnPlantillaGastos.addEventListener('click', descargarPlantillaGastosExcel);
 
 // --- Exportar Honorarios a Excel --------------------------------------------
 //

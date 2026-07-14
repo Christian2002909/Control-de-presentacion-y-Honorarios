@@ -781,6 +781,72 @@ async function exportarClientesAExcel() {
 
 if (elBtnExportarClientes) elBtnExportarClientes.addEventListener('click', exportarClientesAExcel);
 
+// --- Plantilla de Excel descargable (modelo vacío/de ejemplo) --------------
+//
+// A diferencia de exportarClientesAExcel (que descarga los clientes REALES
+// ya cargados, útil de referencia pero no siempre disponible/representativo),
+// esta plantilla es un .xlsx con las mismas columnas exactas que espera
+// importarClientesDesdeExcel -- ver el comentario grande arriba de esa
+// función -- más un par de filas de EJEMPLO con datos ficticios genéricos
+// (ningún dato real del estudio) que muestran el formato esperado de cada
+// columna: cómo se escribe el RUC, que Cierre Fiscal (mes) solo admite
+// 4/6/12, y cómo se marcan las obligaciones con "Sí"/"No" -- incluyendo al
+// menos una obligación en "Sí" y otra en "No" en la misma fila, para que
+// quede claro el formato pedido.
+const elBtnPlantillaClientes = document.getElementById('btn-plantilla-clientes-excel');
+
+async function descargarPlantillaClientesExcel() {
+  if (elBtnPlantillaClientes) elBtnPlantillaClientes.disabled = true;
+  try {
+    // Igual que exportarClientesAExcel: si el catálogo todavía no se cargó
+    // (importa/exportá apenas se abre la pantalla), se pide directo.
+    let catalogoObligaciones = obligacionesCache;
+    if (catalogoObligaciones.length === 0) {
+      const { data, error } = await supabase.from('obligaciones').select('*').order('id');
+      if (error) throw error;
+      catalogoObligaciones = data || [];
+    }
+
+    // Arma una fila de ejemplo, marcando "Sí" en la obligación de índice
+    // "indiceObligacionSi" del catálogo (y "No" en el resto) -- así cada
+    // fila de ejemplo queda con al menos un "Sí" y un "No" entre sus
+    // columnas de obligación, sin depender de cuántas tenga el catálogo.
+    function filaEjemplo(ruc, razonSocial, terminacionRuc, claveMarangatu, cierreFiscalMes, cuotaMensual, cuotaAnual, indiceObligacionSi) {
+      const fila = {
+        'RUC': ruc,
+        'Razón Social': razonSocial,
+        'Terminación RUC': terminacionRuc,
+        'Clave Marangatu': claveMarangatu,
+        'Cierre Fiscal (mes)': cierreFiscalMes,
+        'Cuota Mensual': cuotaMensual,
+        'Cuota Anual': cuotaAnual,
+      };
+      catalogoObligaciones.forEach((obligacion, indice) => {
+        fila[obligacion.nombre] = indice === indiceObligacionSi ? 'Sí' : 'No';
+      });
+      return fila;
+    }
+
+    const filas = [
+      filaEjemplo('80012345-6', 'Ejemplo S.A.', 6, 'clave-marangatu-ejemplo', 12, 500000, 600000, 0),
+      filaEjemplo('80099876-1', 'Comercial Modelo S.R.L.', 1, '', 12, 350000, '', Math.min(1, catalogoObligaciones.length - 1)),
+    ];
+
+    await descargarComoExcel('plantilla_clientes.xlsx', [{ nombre: 'Clientes', filas }]);
+  } catch (error) {
+    console.error('Error al descargar la plantilla de Clientes:', error);
+    if (error instanceof ErrorLibreriaExcelNoDisponible) {
+      mostrarMensaje(error.message, 'error', true);
+    } else {
+      mostrarMensaje('No se pudo generar la plantilla de Excel.', 'error');
+    }
+  } finally {
+    if (elBtnPlantillaClientes) elBtnPlantillaClientes.disabled = false;
+  }
+}
+
+if (elBtnPlantillaClientes) elBtnPlantillaClientes.addEventListener('click', descargarPlantillaClientesExcel);
+
 // --- Editar un cliente desde otra pantalla (Presentaciones) -----------------
 
 // Cambia a la pestaña Clientes y abre el formulario con los datos de un
