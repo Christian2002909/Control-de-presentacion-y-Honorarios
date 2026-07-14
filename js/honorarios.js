@@ -749,7 +749,6 @@ function dibujarTablaHonorarios() {
           <select class="selector-acciones-honorarios" data-acciones-cliente-id="${cliente.id}">
             <option value="" selected>Acciones ▾</option>
             <option value="editar-cuota">Editar cuota</option>
-            <option value="detalle">Detalle</option>
             <option value="deuda-congelada" ${honorario ? '' : 'disabled'}>Deuda congelada</option>
             <option value="otros-gastos">Otros Gastos</option>
           </select>
@@ -832,33 +831,35 @@ function sincronizarCheckboxGrilla(casilla) {
 // se saca la clase "abierta" primero, y recién cuando termina la
 // transición se vacía el contenido -- si se vaciara de una, el contenido
 // desaparecería de golpe y no habría nada que "encoger" visualmente.
-function cerrarTodasLasFilasExpandibles() {
-  elGruposHonorarios.querySelectorAll('tr.fila-expandible .fila-expandible-grid.abierta').forEach((grid) => {
+//
+// Genéricas por `contenedor` porque hay DOS tablas con este mismo patrón de
+// fila-formulario expandible: la grilla principal (elGruposHonorarios,
+// "Editar cuota"/"Deuda congelada"/"Otros Gastos") y, desde acá, el
+// resumen de Historial de Pagos (elTablaPagosBody, "Detalle" con el
+// historial de pagos editable de un cliente).
+function cerrarTodasLasFilasExpandiblesEn(contenedor) {
+  contenedor.querySelectorAll('tr.fila-expandible .fila-expandible-grid.abierta').forEach((grid) => {
     grid.classList.remove('abierta');
     grid.addEventListener('transitionend', () => { grid.querySelector('.fila-expandible-interior').innerHTML = ''; }, { once: true });
   });
-  elGruposHonorarios.querySelectorAll('input.checkbox-grilla-honorarios').forEach(sincronizarCheckboxGrilla);
 }
 
-function cerrarFilaExpandible(clienteId) {
-  const fila = elGruposHonorarios.querySelector(`tr.fila-expandible[data-expandible-id="${clienteId}"]`);
+function cerrarFilaExpandibleEn(contenedor, clienteId) {
+  const fila = contenedor.querySelector(`tr.fila-expandible[data-expandible-id="${clienteId}"]`);
   const grid = fila?.querySelector('.fila-expandible-grid');
   if (grid) {
     grid.classList.remove('abierta');
     grid.addEventListener('transitionend', () => { grid.querySelector('.fila-expandible-interior').innerHTML = ''; }, { once: true });
   }
-  elGruposHonorarios
-    .querySelectorAll(`input.checkbox-grilla-honorarios[data-cliente-id="${clienteId}"]`)
-    .forEach(sincronizarCheckboxGrilla);
 }
 
 // Abre la fila expandible del cliente con el HTML dado, cerrando primero
 // cualquier otra fila que hubiera quedado abierta (una sola a la vez). El
 // contenido se llena ANTES de agregar "abierta" (en el mismo frame) para
 // que la transición de grid-template-rows tenga contra qué alto animar.
-function abrirFilaExpandible(clienteId, html) {
-  cerrarTodasLasFilasExpandibles();
-  const fila = elGruposHonorarios.querySelector(`tr.fila-expandible[data-expandible-id="${clienteId}"]`);
+function abrirFilaExpandibleEn(contenedor, clienteId, html) {
+  cerrarTodasLasFilasExpandiblesEn(contenedor);
+  const fila = contenedor.querySelector(`tr.fila-expandible[data-expandible-id="${clienteId}"]`);
   const grid = fila?.querySelector('.fila-expandible-grid');
   if (!grid) return;
   grid.querySelector('.fila-expandible-interior').innerHTML = html;
@@ -867,6 +868,37 @@ function abrirFilaExpandible(clienteId, html) {
   // clase en el mismo tick que se llenó el contenido, algunos navegadores
   // saltan directo al estado final sin animar.
   requestAnimationFrame(() => grid.classList.add('abierta'));
+}
+
+// --- Grilla principal (elGruposHonorarios): además cierra/sincroniza los
+// checkboxes de mes, que solo existen ahí. ---------------------------------
+function cerrarTodasLasFilasExpandibles() {
+  cerrarTodasLasFilasExpandiblesEn(elGruposHonorarios);
+  elGruposHonorarios.querySelectorAll('input.checkbox-grilla-honorarios').forEach(sincronizarCheckboxGrilla);
+}
+
+function cerrarFilaExpandible(clienteId) {
+  cerrarFilaExpandibleEn(elGruposHonorarios, clienteId);
+  elGruposHonorarios
+    .querySelectorAll(`input.checkbox-grilla-honorarios[data-cliente-id="${clienteId}"]`)
+    .forEach(sincronizarCheckboxGrilla);
+}
+
+function abrirFilaExpandible(clienteId, html) {
+  abrirFilaExpandibleEn(elGruposHonorarios, clienteId, html);
+}
+
+// --- Resumen de Historial de Pagos (elTablaPagosBody) ---------------------
+function cerrarTodasLasFilasExpandiblesPagos() {
+  cerrarTodasLasFilasExpandiblesEn(elTablaPagosBody);
+}
+
+function cerrarFilaExpandiblePagos(clienteId) {
+  cerrarFilaExpandibleEn(elTablaPagosBody, clienteId);
+}
+
+function abrirFilaExpandiblePagos(clienteId, html) {
+  abrirFilaExpandibleEn(elTablaPagosBody, clienteId, html);
 }
 
 // --- Período (mes+año o solo año) para el formulario de pago -------------
@@ -1492,10 +1524,12 @@ function construirDetalleClienteHtml(cliente) {
   `;
 }
 
-function abrirDetalleCliente(clienteId) {
+// Vive en Historial de Pagos (no en la grilla de Honorarios por Cliente --
+// el usuario pidió que la edición esté acá, no repartida en dos lugares).
+function abrirDetalleClientePagos(clienteId) {
   const cliente = clientesCacheHonorarios.find((c) => c.id === clienteId);
   if (!cliente) return;
-  abrirFilaExpandible(clienteId, construirDetalleClienteHtml(cliente));
+  abrirFilaExpandiblePagos(clienteId, construirDetalleClienteHtml(cliente));
 }
 
 // Reemplaza, en el lugar, la fila de un pago por el mini-formulario de
@@ -1556,9 +1590,9 @@ elGruposHonorarios.addEventListener('change', (evento) => {
 
   // Desplegable "Acciones" de la columna de la tabla. Cada elección dispara
   // la misma función que disparaba su botón/opción equivalente, y el
-  // selector vuelve solo al placeholder "Acciones ▾" después. La Ficha ya
-  // no vive acá -- se genera desde la fila de cada cliente en Historial de
-  // Pagos (ver el listener de elTablaPagosBody más abajo).
+  // selector vuelve solo al placeholder "Acciones ▾" después. Ni la Ficha
+  // ni el Detalle (historial de pagos editable) viven acá -- las dos están
+  // en Historial de Pagos (ver los listeners de elTablaPagosBody más abajo).
   const selectorAcciones = evento.target.closest('select[data-acciones-cliente-id]');
   if (selectorAcciones) {
     const clienteId = Number(selectorAcciones.dataset.accionesClienteId);
@@ -1566,7 +1600,6 @@ elGruposHonorarios.addEventListener('change', (evento) => {
     selectorAcciones.value = '';
 
     if (accion === 'editar-cuota') abrirFormularioEditarCuota(clienteId);
-    else if (accion === 'detalle') abrirDetalleCliente(clienteId);
     else if (accion === 'deuda-congelada') abrirFormularioCongelarDeuda(clienteId);
     else if (accion === 'otros-gastos') abrirFormularioOtrosGastos(clienteId);
     return;
@@ -1625,18 +1658,13 @@ elGruposHonorarios.addEventListener('click', (evento) => {
     return;
   }
 
-  const botonEditarPago = evento.target.closest('button[data-editar-pago-id]');
-  if (botonEditarPago) {
-    const filaPago = evento.target.closest('tr[data-fila-pago-id]');
-    if (filaPago) abrirEdicionPagoEnFila(filaPago, Number(botonEditarPago.dataset.editarPagoId));
-    return;
-  }
-
   // "Eliminar pago" dentro del formulario de un pago existente -- para
   // cuando lo que corresponde no es corregirlo (Guardar) sino borrarlo del
   // todo, ej. se tildó un mes por error. Nunca se llega acá tildando un
   // checkbox vacío (ese siempre abre el formulario para uno NUEVO, sin este
-  // botón -- ver construirFormularioPagoHtml).
+  // botón -- ver construirFormularioPagoHtml). El "Editar"/"Eliminar" de un
+  // pago ya cargado DESDE el historial completo de un cliente vive en
+  // Historial de Pagos (ver elTablaPagosBody más abajo), no acá.
   const botonEliminarPago = evento.target.closest('button[data-eliminar-pago-id]');
   if (botonEliminarPago) {
     eliminarPagoInline(Number(botonEliminarPago.dataset.eliminarPagoId));
@@ -1645,14 +1673,7 @@ elGruposHonorarios.addEventListener('click', (evento) => {
 
   const botonCancelar = evento.target.closest('[data-cancelar-inline]');
   if (botonCancelar) {
-    const filaPago = evento.target.closest('tr[data-fila-pago-id]');
     const filaExpandible = evento.target.closest('tr.fila-expandible');
-    if (filaPago && filaExpandible) {
-      // Estábamos corrigiendo un pago dentro del detalle de un cliente:
-      // volvemos a pintar el detalle completo (sin volver a pedir datos).
-      abrirDetalleCliente(Number(filaExpandible.dataset.expandibleId));
-      return;
-    }
     if (filaExpandible) cerrarFilaExpandible(Number(filaExpandible.dataset.expandibleId));
   }
 });
@@ -1710,6 +1731,11 @@ function construirCeldaCuotaResumen(honorario, cliente, tipoHonorario) {
   return `<span class="celda-cuota-resumen">${formatearGuaranies(monto)} ${dibujarBadgeEstado(resultado)}</span>`;
 }
 
+// Cantidad de columnas del resumen por cliente de Historial de Pagos
+// (Cliente + Cuota Mensual + Cuota Anual + Deuda Congelada + Otros Gastos +
+// Acciones), usada para el colspan de su fila expandible.
+const PAGOS_RESUMEN_COLSPAN = 6;
+
 function construirFilaResumenClienteHtml(cliente, honorario) {
   return `
     <tr>
@@ -1718,36 +1744,23 @@ function construirFilaResumenClienteHtml(cliente, honorario) {
       <td>${construirCeldaCuotaResumen(honorario, cliente, 'anual')}</td>
       <td>${dibujarBadgesDeudaCongelada(cliente.id) || '<span class="texto-ayuda">—</span>'}</td>
       <td>${dibujarBadgeOtrosGastos(cliente.id) || '<span class="texto-ayuda">—</span>'}</td>
-      <td class="celda-ficha-resumen">
-        <button type="button" class="boton boton-chico" data-ficha-pdf-cliente="${cliente.id}">PDF</button>
-        <button type="button" class="boton boton-chico" data-ficha-excel-cliente="${cliente.id}">Excel</button>
-        <button type="button" class="boton boton-secundario boton-chico" data-editar-cliente-pagos="${cliente.id}">Editar</button>
+      <td class="celda-acciones-honorarios">
+        <select class="selector-acciones-honorarios" data-acciones-pagos-cliente-id="${cliente.id}">
+          <option value="" selected>Acciones ▾</option>
+          <option value="editar">Editar</option>
+          <option value="ficha-pdf">Ficha en PDF</option>
+          <option value="ficha-excel">Ficha en Excel</option>
+        </select>
+      </td>
+    </tr>
+    <tr class="fila-expandible" data-expandible-id="${cliente.id}">
+      <td colspan="${PAGOS_RESUMEN_COLSPAN}">
+        <div class="fila-expandible-grid">
+          <div class="fila-expandible-contenido"><div class="fila-expandible-interior"></div></div>
+        </div>
       </td>
     </tr>
   `;
-}
-
-// El botón "Editar" de esta tabla no abre su propia fila expandible (el
-// resumen no la tiene, a diferencia de la grilla de Honorarios por
-// Cliente) -- reutiliza el mismo panel "Detalle" que ya vive ahí (con el
-// historial de pagos completo, cada uno con su botón Editar/Eliminar), pero
-// asegurándose primero de que esa sección esté visible (puede estar
-// colapsada) y haciendo scroll hasta la fila del cliente para que el
-// usuario no tenga que ir a buscarla.
-function editarClienteDesdeHistorialPagos(clienteId) {
-  const grid = document.getElementById('seccion-colapsable-honorarios-por-cliente');
-  const botonVer = document.querySelector('[data-toggle-seccion="honorarios-por-cliente"]');
-  if (grid && !grid.classList.contains('abierta')) {
-    grid.classList.add('abierta');
-    if (botonVer) botonVer.textContent = 'Ocultar';
-  }
-
-  abrirDetalleCliente(clienteId);
-
-  requestAnimationFrame(() => {
-    const fila = elGruposHonorarios.querySelector(`tr.fila-expandible[data-expandible-id="${clienteId}"]`);
-    fila?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
 }
 
 function dibujarTablaPagos() {
@@ -1828,29 +1841,58 @@ async function descargarFichaClienteExcel(cliente, honorario) {
   }
 }
 
+// Un único <select> "Acciones ▾" por fila (mismo patrón que la grilla de
+// Honorarios por Cliente) en vez de 2-3 botones sueltos, que en una columna
+// angosta terminaban apilados uno debajo del otro.
+elTablaPagosBody.addEventListener('change', (evento) => {
+  const selectorAcciones = evento.target.closest('select[data-acciones-pagos-cliente-id]');
+  if (!selectorAcciones) return;
+
+  const clienteId = Number(selectorAcciones.dataset.accionesPagosClienteId);
+  const accion = selectorAcciones.value;
+  selectorAcciones.value = '';
+
+  const cliente = clientesCacheHonorarios.find((c) => c.id === clienteId);
+  const honorario = honorariosCache.find((h) => h.cliente_id === clienteId);
+
+  if (accion === 'editar') abrirDetalleClientePagos(clienteId);
+  else if (accion === 'ficha-pdf' && cliente && honorario) generarFichaPago(cliente, honorario);
+  else if (accion === 'ficha-excel' && cliente && honorario) descargarFichaClienteExcel(cliente, honorario);
+});
+
 elTablaPagosBody.addEventListener('click', (evento) => {
-  const botonFichaPdf = evento.target.closest('button[data-ficha-pdf-cliente]');
-  if (botonFichaPdf) {
-    const clienteId = Number(botonFichaPdf.dataset.fichaPdfCliente);
-    const cliente = clientesCacheHonorarios.find((c) => c.id === clienteId);
-    const honorario = honorariosCache.find((h) => h.cliente_id === clienteId);
-    if (cliente && honorario) generarFichaPago(cliente, honorario);
+  const botonEditarPago = evento.target.closest('button[data-editar-pago-id]');
+  if (botonEditarPago) {
+    const filaPago = evento.target.closest('tr[data-fila-pago-id]');
+    if (filaPago) abrirEdicionPagoEnFila(filaPago, Number(botonEditarPago.dataset.editarPagoId));
     return;
   }
 
-  const botonFichaExcel = evento.target.closest('button[data-ficha-excel-cliente]');
-  if (botonFichaExcel) {
-    const clienteId = Number(botonFichaExcel.dataset.fichaExcelCliente);
-    const cliente = clientesCacheHonorarios.find((c) => c.id === clienteId);
-    const honorario = honorariosCache.find((h) => h.cliente_id === clienteId);
-    if (cliente && honorario) descargarFichaClienteExcel(cliente, honorario);
+  const botonEliminarPago = evento.target.closest('button[data-eliminar-pago-id]');
+  if (botonEliminarPago) {
+    eliminarPagoInline(Number(botonEliminarPago.dataset.eliminarPagoId));
     return;
   }
 
-  const botonEditar = evento.target.closest('button[data-editar-cliente-pagos]');
-  if (botonEditar) {
-    editarClienteDesdeHistorialPagos(Number(botonEditar.dataset.editarClientePagos));
+  const botonCancelar = evento.target.closest('[data-cancelar-inline]');
+  if (botonCancelar) {
+    const filaPago = evento.target.closest('tr[data-fila-pago-id]');
+    const filaExpandible = evento.target.closest('tr.fila-expandible');
+    if (filaPago && filaExpandible) {
+      // Estábamos corrigiendo un pago dentro del Detalle de un cliente:
+      // volvemos a pintar el Detalle completo (sin volver a pedir datos).
+      abrirDetalleClientePagos(Number(filaExpandible.dataset.expandibleId));
+      return;
+    }
+    if (filaExpandible) cerrarFilaExpandiblePagos(Number(filaExpandible.dataset.expandibleId));
   }
+});
+
+elTablaPagosBody.addEventListener('submit', async (evento) => {
+  const formPago = evento.target.closest('form.form-pago-inline');
+  if (!formPago) return;
+  evento.preventDefault();
+  await guardarPagoInline(formPago);
 });
 
 // --- Ficha de pago descargable (PDF vía diálogo de impresión) -------------

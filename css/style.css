@@ -362,21 +362,6 @@ table.tabla-honorarios-grilla th {
   gap: 8px;
 }
 
-/* Columna "Ficha" del resumen por cliente de Historial de Pagos: botones
-   PDF/Excel uno al lado del otro. */
-.celda-ficha-resumen {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-/* .boton-secundario trae margin-left:8px pensado para una fila de acciones
-   sin flexbox (ver .acciones-form) -- acá el gap de arriba ya separa los
-   tres botones, así que ese margen extra solo desalinearía "Editar". */
-.celda-ficha-resumen .boton-secundario {
-  margin-left: 0;
-}
-
 /* Columnas "Cuota Mensual"/"Cuota Anual" del resumen por cliente: monto
    pactado + badge Al día/Debe, uno al lado del otro en una sola línea (el
    badge ya no puede partirse gracias a white-space:nowrap en .badge). */
@@ -501,6 +486,22 @@ table.tabla-honorarios-grilla th {
   justify-content: flex-start;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* El aviso flota SOBRE el borde superior de la tabla (ver
+   .presentaciones-area-tabla) en vez de empujarla hacia abajo al
+   aparecer/desaparecer -- la sombra ayuda a leerlo como algo flotante,
+   no como parte del layout normal de la fila. */
+.presentaciones-area-tabla {
+  position: relative;
+}
+
+.aviso-deshacer-flotante {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
 }
 
 .aviso-deshacer-acciones {
