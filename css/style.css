@@ -260,6 +260,14 @@ input[type='search'] {
   color: var(--color-chico-texto);
 }
 
+/* Botón de una acción destructiva puntual (eliminar un pago cargado por
+   error) -- mismos colores que .badge-rojo/.mensaje-error, para que se lea
+   como "cuidado" sin necesidad de un cuarto set de variables. */
+.boton-peligro {
+  background-color: var(--color-error-fondo);
+  color: var(--color-error-texto);
+}
+
 .boton-link {
   border: none;
   background: none;
@@ -358,7 +366,15 @@ table.tabla-honorarios-grilla th {
    PDF/Excel uno al lado del otro. */
 .celda-ficha-resumen {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+}
+
+/* .boton-secundario trae margin-left:8px pensado para una fila de acciones
+   sin flexbox (ver .acciones-form) -- acá el gap de arriba ya separa los
+   tres botones, así que ese margen extra solo desalinearía "Editar". */
+.celda-ficha-resumen .boton-secundario {
+  margin-left: 0;
 }
 
 /* Columnas "Cuota Mensual"/"Cuota Anual" del resumen por cliente: monto
@@ -476,10 +492,13 @@ table.tabla-honorarios-grilla th {
 /* Aviso de "Deshacer"/"Aceptar" tras marcar una presentación (ver
    mostrarAvisoDeshacer en js/presentaciones.js) -- reutiliza los colores de
    .mensaje-exito, con los dos botones alineados a la derecha. */
+/* inline-flex (no flex): a propósito NO se estira a lo ancho de la tarjeta
+   -- tiene que leerse como un avisito chico, no como una barra de mensaje
+   de ancho completo. */
 .aviso-deshacer {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   flex-wrap: wrap;
 }

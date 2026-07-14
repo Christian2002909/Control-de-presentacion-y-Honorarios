@@ -987,6 +987,7 @@ function construirFormularioPagoHtml(cliente, honorario, pagoExistente = null, t
       <div class="acciones-form">
         <button type="submit" class="boton boton-primario boton-chico">Guardar Pago</button>
         <button type="button" class="boton boton-secundario boton-chico" data-cancelar-inline>Cancelar</button>
+        ${pagoExistente ? `<button type="button" class="boton boton-peligro boton-chico" data-eliminar-pago-id="${pagoExistente.id}">Eliminar pago</button>` : ''}
       </div>
     </form>
   `;
@@ -1061,6 +1062,24 @@ async function guardarPagoInline(form) {
   } catch (error) {
     console.error('Error al guardar el pago:', error);
     mostrarMensajeHonorarios('No se pudo guardar el pago.', 'error');
+  }
+}
+
+// Elimina por completo un pago cargado por error -- a diferencia de
+// destildar el checkbox de la grilla (que solo ABRE este mismo formulario
+// para corregirlo), este es el botón "Eliminar pago" de adentro, para
+// cuando lo que corresponde no es corregir el monto/fecha sino borrar el
+// registro entero.
+async function eliminarPagoInline(pagoId) {
+  try {
+    const { error } = await supabaseHonorarios.from('pagos_honorarios').delete().eq('id', pagoId);
+    if (error) throw error;
+
+    mostrarMensajeHonorarios('Pago eliminado correctamente.');
+    await cargarHonorarios();
+  } catch (error) {
+    console.error('Error al eliminar el pago:', error);
+    mostrarMensajeHonorarios('No se pudo eliminar el pago.', 'error');
   }
 }
 
@@ -1613,6 +1632,17 @@ elGruposHonorarios.addEventListener('click', (evento) => {
     return;
   }
 
+  // "Eliminar pago" dentro del formulario de un pago existente -- para
+  // cuando lo que corresponde no es corregirlo (Guardar) sino borrarlo del
+  // todo, ej. se tildó un mes por error. Nunca se llega acá tildando un
+  // checkbox vacío (ese siempre abre el formulario para uno NUEVO, sin este
+  // botón -- ver construirFormularioPagoHtml).
+  const botonEliminarPago = evento.target.closest('button[data-eliminar-pago-id]');
+  if (botonEliminarPago) {
+    eliminarPagoInline(Number(botonEliminarPago.dataset.eliminarPagoId));
+    return;
+  }
+
   const botonCancelar = evento.target.closest('[data-cancelar-inline]');
   if (botonCancelar) {
     const filaPago = evento.target.closest('tr[data-fila-pago-id]');
@@ -1691,9 +1721,33 @@ function construirFilaResumenClienteHtml(cliente, honorario) {
       <td class="celda-ficha-resumen">
         <button type="button" class="boton boton-chico" data-ficha-pdf-cliente="${cliente.id}">PDF</button>
         <button type="button" class="boton boton-chico" data-ficha-excel-cliente="${cliente.id}">Excel</button>
+        <button type="button" class="boton boton-secundario boton-chico" data-editar-cliente-pagos="${cliente.id}">Editar</button>
       </td>
     </tr>
   `;
+}
+
+// El botón "Editar" de esta tabla no abre su propia fila expandible (el
+// resumen no la tiene, a diferencia de la grilla de Honorarios por
+// Cliente) -- reutiliza el mismo panel "Detalle" que ya vive ahí (con el
+// historial de pagos completo, cada uno con su botón Editar/Eliminar), pero
+// asegurándose primero de que esa sección esté visible (puede estar
+// colapsada) y haciendo scroll hasta la fila del cliente para que el
+// usuario no tenga que ir a buscarla.
+function editarClienteDesdeHistorialPagos(clienteId) {
+  const grid = document.getElementById('seccion-colapsable-honorarios-por-cliente');
+  const botonVer = document.querySelector('[data-toggle-seccion="honorarios-por-cliente"]');
+  if (grid && !grid.classList.contains('abierta')) {
+    grid.classList.add('abierta');
+    if (botonVer) botonVer.textContent = 'Ocultar';
+  }
+
+  abrirDetalleCliente(clienteId);
+
+  requestAnimationFrame(() => {
+    const fila = elGruposHonorarios.querySelector(`tr.fila-expandible[data-expandible-id="${clienteId}"]`);
+    fila?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 }
 
 function dibujarTablaPagos() {
@@ -1790,6 +1844,12 @@ elTablaPagosBody.addEventListener('click', (evento) => {
     const cliente = clientesCacheHonorarios.find((c) => c.id === clienteId);
     const honorario = honorariosCache.find((h) => h.cliente_id === clienteId);
     if (cliente && honorario) descargarFichaClienteExcel(cliente, honorario);
+    return;
+  }
+
+  const botonEditar = evento.target.closest('button[data-editar-cliente-pagos]');
+  if (botonEditar) {
+    editarClienteDesdeHistorialPagos(Number(botonEditar.dataset.editarClientePagos));
   }
 });
 
