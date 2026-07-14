@@ -684,6 +684,78 @@ input[type='search'] {
   max-width: 360px;
 }
 
+.login-instruccion {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--color-texto-secundario);
+}
+
+/* Paso 1 del login ("elegí tu nombre", ver js/auth.js): un botón grande
+   por perfil, apilados, en vez de un <select> -- son pocos nombres (el
+   estudio entero) y así cada uno se toca directo sin abrir nada. */
+.login-nombres-contenedor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.login-nombre-boton {
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--color-borde);
+  background-color: var(--color-superficie);
+  color: var(--color-texto);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.login-nombre-boton:hover {
+  border-color: var(--color-marca);
+  background-color: var(--color-chico-fondo);
+}
+
+/* Paso 2 (contraseña): botón "Volver" chico arriba del todo del form,
+   separado de las acciones de abajo para que quede claro que no envía
+   nada -- solo vuelve al paso 1. */
+.boton-login-volver {
+  display: block;
+  margin-bottom: 14px;
+}
+
+/* Input de contraseña + botón "Ver"/"Ocultar" en la misma fila, sin sumar
+   una fila-form aparte solo para el botón. */
+.input-con-boton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-con-boton input {
+  flex: 1;
+}
+
+.boton-ver-password {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.fila-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.fila-checkbox input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
 .barra-usuario {
   display: flex;
   justify-content: flex-end;

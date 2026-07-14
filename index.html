@@ -16,19 +16,57 @@
   <!-- ============================== -->
   <!-- Se muestra sola al arrancar. js/auth.js la oculta y muestra
        #app-autenticado apenas hay una sesión válida. No hay alta de
-       usuarios desde acá: se crean a mano en el dashboard de Supabase. -->
+       usuarios desde acá: se crean a mano en el dashboard de Supabase o
+       desde Configuración → Usuarios.
+
+       Dos pasos, manejados por js/auth.js:
+       1) #login-lista-nombres: primera pantalla, "elegí tu nombre" --
+          lista armada con la vista pública perfiles_publicos (ver
+          schema.sql sección 15.2), la única lectura sin sesión de todo el
+          esquema.
+       2) #form-login: contraseña de la persona elegida (o email+contraseña
+          completo si no hay ningún nombre en la lista todavía, ver el link
+          de más abajo). Si hay una sesión guardada en esta PC para el
+          nombre elegido (ver "Recordar", localStorage), este paso se
+          saltea solo. -->
   <section id="vista-login" class="vista-login">
     <div class="tarjeta tarjeta-login">
       <h2>Iniciar sesión</h2>
       <div id="login-mensaje" class="mensaje mensaje-error oculto"></div>
-      <form id="form-login">
-        <div class="fila-form">
+
+      <!-- Paso 1: lista de nombres -->
+      <div id="login-lista-nombres">
+        <p class="login-instruccion">¿Quién sos?</p>
+        <div id="login-nombres-contenedor" class="login-nombres-contenedor">
+          <p class="texto-ayuda">Cargando...</p>
+        </div>
+        <div class="acciones-form">
+          <button type="button" id="btn-login-otro-usuario" class="boton-link">
+            Ingresar con email y contraseña
+          </button>
+        </div>
+      </div>
+
+      <!-- Paso 2: contraseña -->
+      <form id="form-login" class="oculto">
+        <button type="button" id="btn-login-volver" class="boton-link boton-login-volver">‹ Volver</button>
+        <p id="login-nombre-elegido" class="login-instruccion oculto"></p>
+        <div class="fila-form" id="fila-login-email">
           <label for="login-email">Email</label>
-          <input type="email" id="login-email" required autocomplete="username" />
+          <input type="email" id="login-email" autocomplete="username" />
         </div>
         <div class="fila-form">
           <label for="login-password">Contraseña</label>
-          <input type="password" id="login-password" required autocomplete="current-password" />
+          <div class="input-con-boton">
+            <input type="password" id="login-password" required autocomplete="current-password" />
+            <button type="button" id="btn-ver-password" class="boton-link boton-ver-password">Ver</button>
+          </div>
+        </div>
+        <div class="fila-form fila-checkbox">
+          <label>
+            <input type="checkbox" id="login-recordar" checked />
+            Recordar en esta PC
+          </label>
         </div>
         <div class="acciones-form">
           <button type="submit" class="boton boton-primario">Ingresar</button>
