@@ -35,6 +35,11 @@ const elPanelRg90Visible = document.getElementById('panel-rg90-visible');
 const elPanelHonorariosCuotaAnual = document.getElementById('panel-honorarios-cuota-anual');
 const elConfiguracionPanelesMensaje = document.getElementById('configuracion-paneles-mensaje');
 
+const elTarjetaMiPerfil = document.getElementById('tarjeta-mi-perfil');
+const elFormMiPerfil = document.getElementById('form-mi-perfil');
+const elMiPerfilNombre = document.getElementById('mi-perfil-nombre');
+const elConfiguracionMiPerfilMensaje = document.getElementById('configuracion-mi-perfil-mensaje');
+
 const elFormCrearResponsable = document.getElementById('form-crear-responsable');
 const elResponsableNombre = document.getElementById('responsable-nombre');
 const elResponsableEmail = document.getElementById('responsable-email');
@@ -52,17 +57,22 @@ let logoBase64Actual = null;
 const elConfigTabBotones = document.querySelectorAll('.config-tab-boton');
 const elConfigTabPaneles = document.querySelectorAll('.config-tab-panel');
 
-for (const boton of elConfigTabBotones) {
-  boton.addEventListener('click', () => {
-    const idTab = boton.dataset.configTab;
+// Extraído a función aparte (antes vivía inline en el listener de cada
+// botón) para poder reusarlo desde window.mostrarPestanaUsuariosConfiguracion
+// más abajo, que auth.js dispara cuando el usuario hace clic en "Completar
+// mi perfil" del banner global -- mismo criterio de comunicación entre
+// pantallas que el resto de la app (ver CLAUDE.md).
+function activarPestanaConfiguracion(idTab) {
+  for (const panel of elConfigTabPaneles) {
+    panel.classList.toggle('oculto', panel.id !== idTab);
+  }
+  for (const boton of elConfigTabBotones) {
+    boton.classList.toggle('activo', boton.dataset.configTab === idTab);
+  }
+}
 
-    for (const panel of elConfigTabPaneles) {
-      panel.classList.toggle('oculto', panel.id !== idTab);
-    }
-    for (const otroBoton of elConfigTabBotones) {
-      otroBoton.classList.toggle('activo', otroBoton === boton);
-    }
-  });
+for (const boton of elConfigTabBotones) {
+  boton.addEventListener('click', () => activarPestanaConfiguracion(boton.dataset.configTab));
 }
 
 function aplicarTema(tema) {
@@ -91,6 +101,14 @@ function mostrarMensajePaneles(texto, tipo = 'exito') {
   elConfiguracionPanelesMensaje.className = `mensaje mensaje-${tipo}`;
   elConfiguracionPanelesMensaje.classList.remove('oculto');
   setTimeout(() => elConfiguracionPanelesMensaje.classList.add('oculto'), 4000);
+}
+
+function mostrarMensajeMiPerfil(texto, tipo = 'exito') {
+  if (!elConfiguracionMiPerfilMensaje) return;
+  elConfiguracionMiPerfilMensaje.textContent = texto;
+  elConfiguracionMiPerfilMensaje.className = `mensaje mensaje-${tipo}`;
+  elConfiguracionMiPerfilMensaje.classList.remove('oculto');
+  setTimeout(() => elConfiguracionMiPerfilMensaje.classList.add('oculto'), 4000);
 }
 
 // No usa setTimeout para auto-ocultarse (a diferencia de los otros
@@ -171,6 +189,40 @@ async function cargarConfiguracion() {
   } catch (error) {
     console.error('Error al cargar el membrete general:', error);
     mostrarMensajeConfiguracionEstudio('No se pudo cargar el membrete general.', 'error');
+  }
+
+  await verificarPerfilPropioConfiguracion();
+}
+
+// Se llama cada vez que se entra a la pestaña Configuración (igual que el
+// resto de cargarConfiguracion()): muestra la tarjeta "Tu perfil" solo si
+// el usuario logueado todavía no tiene su propia fila en `perfiles` (ver
+// docs/PEDIDOS_PENDIENTES.md, "Pantalla Configuración / Clientes"). No
+// bloquea el resto de la pestaña si esta consulta puntual falla.
+async function verificarPerfilPropioConfiguracion() {
+  if (!elTarjetaMiPerfil || !supabaseConfiguracion) return;
+
+  try {
+    const { data: sesionData, error: errorSesion } = await supabaseConfiguracion.auth.getSession();
+    if (errorSesion) throw errorSesion;
+
+    const usuarioId = sesionData?.session?.user?.id;
+    if (!usuarioId) {
+      elTarjetaMiPerfil.classList.add('oculto');
+      return;
+    }
+
+    const { data: perfilPropio, error: errorPerfilPropio } = await supabaseConfiguracion
+      .from('perfiles')
+      .select('id')
+      .eq('id', usuarioId)
+      .maybeSingle();
+
+    if (errorPerfilPropio) throw errorPerfilPropio;
+
+    elTarjetaMiPerfil.classList.toggle('oculto', Boolean(perfilPropio));
+  } catch (error) {
+    console.error('Error al verificar si el usuario logueado tiene su propio perfil:', error);
   }
 }
 
@@ -270,6 +322,77 @@ for (const [columna, elemento] of SWITCHES_PANELES) {
       mostrarMensajePaneles('No se pudo guardar el cambio. Intentá de nuevo.', 'error');
     } finally {
       elemento.disabled = false;
+    }
+  });
+}
+
+// --- Tu perfil: autoregistro del propio usuario logueado ------------------
+// Distinto de "Crear Responsable" de abajo: acá NO se crea ninguna cuenta
+// de Auth nueva -- la cuenta ya existe (es la sesión actual), solo falta
+// insertar la fila de `perfiles` con id = auth.uid() propio. La policy
+// "perfiles_insertar_autenticados" (with check (true), agregada en la
+// tanda de "Crear Responsable") ya permite este insert sin cambios: la
+// condición no depende del id insertado, así que también cubre el caso
+// "insertar mi propia fila" -- no hizo falta tocar schema.sql.
+
+if (elFormMiPerfil) {
+  elFormMiPerfil.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+
+    if (!supabaseConfiguracion) {
+      mostrarMensajeMiPerfil('Falta configurar la conexión a Supabase.', 'error');
+      return;
+    }
+
+    const nombre = elMiPerfilNombre.value.trim();
+    if (!nombre) {
+      mostrarMensajeMiPerfil('Escribí tu nombre.', 'error');
+      return;
+    }
+
+    const boton = elFormMiPerfil.querySelector('button[type="submit"]');
+    boton.disabled = true;
+
+    try {
+      const { data: sesionData, error: errorSesion } = await supabaseConfiguracion.auth.getSession();
+      const usuarioId = sesionData?.session?.user?.id;
+      if (errorSesion || !usuarioId) {
+        throw new Error('No se pudo leer tu sesión actual.');
+      }
+
+      const { error: errorPerfil } = await supabaseConfiguracion
+        .from('perfiles')
+        .insert({ id: usuarioId, nombre, rol: 'responsable' });
+
+      if (errorPerfil) throw errorPerfil;
+
+      mostrarMensajeMiPerfil('Perfil creado correctamente.');
+      elFormMiPerfil.reset();
+      elTarjetaMiPerfil.classList.add('oculto');
+
+      // El banner de aviso de la barra superior vive fuera de esta pantalla
+      // (index.html) y lo maneja js/auth.js -- lo refrescamos para que
+      // desaparezca de inmediato en vez de esperar a un próximo login.
+      if (typeof window.verificarPerfilPropio === 'function') {
+        window.verificarPerfilPropio();
+      }
+
+      // No hace falta refrescar a mano ningún <select> de "Responsable"/
+      // "Ver cartera de" en Clientes/Presentaciones/Historial/Honorarios:
+      // cada una de esas pantallas vuelve a leer `perfiles` al entrar a su
+      // pestaña (ver navegacion.js, FUNCION_DE_RECARGA_POR_VISTA), así que
+      // el nombre recién creado aparece solo con cambiar de pestaña -- mismo
+      // comportamiento ya documentado para "Crear Responsable" más abajo.
+    } catch (error) {
+      console.error('Error al crear tu perfil propio:', error);
+      const mensajeCrudo = error?.message || '';
+      let mensaje = 'No se pudo crear tu perfil. Intentá de nuevo.';
+      if (/duplicate key|already exists/i.test(mensajeCrudo)) {
+        mensaje = 'Ya tenés un perfil creado -- recargá la pestaña.';
+      }
+      mostrarMensajeMiPerfil(mensaje, 'error');
+    } finally {
+      boton.disabled = false;
     }
   });
 }
@@ -404,6 +527,11 @@ if (elFormCrearResponsable) {
 // Exponemos solo esta función en "window" para que navegacion.js pueda
 // volver a llamarla cada vez que se entra a esta pestaña.
 window.cargarConfiguracion = cargarConfiguracion;
+
+// Expuesta para que js/auth.js pueda llevar al usuario directo a la
+// pestaña Usuarios (donde vive la tarjeta "Tu perfil") al hacer clic en
+// "Completar mi perfil" del banner global.
+window.mostrarPestanaUsuariosConfiguracion = () => activarPestanaConfiguracion('config-tab-usuarios');
 
 // Aplicamos el tema guardado apenas carga este script (antes de mostrar
 // nada), para no arrancar siempre en claro y "saltar" a oscuro después.
