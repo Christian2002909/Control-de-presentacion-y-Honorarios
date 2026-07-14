@@ -348,22 +348,11 @@
                 </select>
               </div>
             </div>
-            <div class="tabla-scroll">
-              <table class="tabla-clientes tabla-honorarios-grilla">
-                <thead>
-                  <tr>
-                    <th>Cliente</th>
-                    <th>Ene</th><th>Feb</th><th>Mar</th><th>Abr</th>
-                    <th>May</th><th>Jun</th><th>Jul</th><th>Ago</th>
-                    <th>Set</th><th>Oct</th><th>Nov</th><th>Dic</th>
-                    <th>Anual</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="tabla-honorarios-body">
-                  <!-- Los grupos "VENCIMIENTO N - FECHA D" y las filas se arman dinámicamente desde js/honorarios.js -->
-                </tbody>
-              </table>
+            <div id="tabla-honorarios-grupos">
+              <!-- Los grupos "VENCIMIENTO N - FECHA D" -- cada uno con su
+                   propia tabla y su propio encabezado Cliente/meses
+                   repetido debajo del título, igual que Historial -- se
+                   arman dinámicamente desde js/honorarios.js -->
             </div>
             <p id="sin-honorarios" class="sin-datos oculto">No hay clientes que coincidan con la búsqueda.</p>
           </div>
