@@ -632,6 +632,14 @@ input[type='search'] {
   color: var(--color-error-texto);
 }
 
+/* Badge secundario de "Deuda congelada" (js/honorarios.js): a propósito
+   ni verde ni rojo -- es una deuda vieja que se sigue debiendo pero cuyo
+   cobro quedó diferido, no un mensaje urgente como "Debe". */
+.badge-neutro {
+  background-color: var(--color-neutro-fondo);
+  color: var(--color-neutro-texto);
+}
+
 .vista-login {
   display: flex;
   justify-content: center;

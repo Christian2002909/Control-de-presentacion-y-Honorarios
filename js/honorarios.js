@@ -13,6 +13,18 @@
 // pagos históricos de esa misma cuota (tipo_honorario). El estado general
 // es "Debe" si cualquiera de las dos cuotas tiene saldo pendiente.
 //
+// "Congelar deuda" (tabla deudas_congeladas_honorarios): permite diferir
+// -sin perdonar- una deuda vieja de un cliente+tipo para que dicho estado
+// corriente deje de mostrar "Debe" apenas el cliente vuelve a pagar
+// puntual. Mientras un cliente+tipo tenga una deuda congelada pendiente
+// (pagada = false), calcularSaldoPorTipo arranca a contar períodos desde
+// el momento en que se congeló (created_at de esa fila) en vez de desde
+// honorarios.created_at -- "como si el honorario arrancara de cero" para
+// el cálculo corriente, sin tocar el created_at real. El monto congelado
+// en sí no se resta de nada: se muestra aparte, con un badge distinto al
+// de "Debe", hasta que se marca "pagada" (no genera un pago en
+// pagos_honorarios, ver comentario en schema.sql).
+//
 // Registrar un pago, editar la cuota pactada y ver el detalle de un
 // cliente se hacen todos expandiendo una fila-formulario debajo de la fila
 // del cliente en la tabla principal (mismo espíritu que el checkbox
@@ -73,6 +85,13 @@ const NOMBRES_MES_COMPLETOS = [
   'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
 
+// Versión abreviada, usada en el badge de "Deuda congelada" (ej. "dic.
+// 2026") para que no ocupe tanto espacio como la fecha completa dd/mm/aaaa.
+const MESES_ABREVIADOS = [
+  'ene.', 'feb.', 'mar.', 'abr.', 'may.', 'jun.',
+  'jul.', 'ago.', 'set.', 'oct.', 'nov.', 'dic.',
+];
+
 const ETIQUETAS_FORMA_PAGO = {
   efectivo: 'Efectivo',
   transferencia: 'Transferencia',
@@ -90,6 +109,10 @@ const VALOR_CARTERA_TODOS = 'todos';
 let clientesCacheHonorarios = [];
 let honorariosCache = [];
 let pagosCache = [];
+// Deudas congeladas (tabla deudas_congeladas_honorarios): deuda vieja de
+// un cliente+tipo, diferida sin perdonarse -- ver contarPeriodosAdeudables
+// y dibujarBadgesDeudaCongelada más abajo.
+let deudasCongeladasCache = [];
 let configuracionEstudio = null;
 // Perfiles (tabla `perfiles`), para armar las opciones del selector de cartera.
 let perfilesCache = [];
@@ -112,6 +135,13 @@ function formatearGuaranies(monto) {
 function formatearFechaVisibleHonorarios(fechaISO) {
   const [anio, mes, dia] = fechaISO.split('-');
   return `${dia}/${mes}/${anio}`;
+}
+
+// "dic. 2026" -- usado en el badge de "Deuda congelada" para la fecha de
+// acuerdo (fecha_acuerdo es un date "yyyy-mm-dd", sin hora).
+function formatearMesAnioCorto(fechaISO) {
+  const [anio, mes] = fechaISO.split('-');
+  return `${MESES_ABREVIADOS[Number(mes) - 1]} ${anio}`;
 }
 
 function formatearFormaPago(formaPago) {
@@ -243,6 +273,7 @@ async function cargarHonorarios() {
       { data: clientes, error: errorClientes },
       { data: honorarios, error: errorHonorarios },
       { data: pagos, error: errorPagos },
+      { data: deudasCongeladas, error: errorDeudasCongeladas },
       { data: configuracion, error: errorConfiguracion },
     ] = await Promise.all([
       supabaseHonorarios
@@ -251,17 +282,20 @@ async function cargarHonorarios() {
         .order('razon_social'),
       supabaseHonorarios.from('honorarios').select('*'),
       supabaseHonorarios.from('pagos_honorarios').select('*').order('fecha_pago', { ascending: false }),
+      supabaseHonorarios.from('deudas_congeladas_honorarios').select('*'),
       supabaseHonorarios.from('configuracion_estudio').select('*').eq('id', 1).maybeSingle(),
     ]);
 
     if (errorClientes) throw errorClientes;
     if (errorHonorarios) throw errorHonorarios;
     if (errorPagos) throw errorPagos;
+    if (errorDeudasCongeladas) throw errorDeudasCongeladas;
     if (errorConfiguracion) throw errorConfiguracion;
 
     clientesCacheHonorarios = clientes || [];
     honorariosCache = honorarios || [];
     pagosCache = pagos || [];
+    deudasCongeladasCache = deudasCongeladas || [];
     configuracionEstudio = configuracion || null;
 
     await Promise.all([cargarUsuarioActual(), cargarPerfiles()]);
@@ -283,21 +317,39 @@ async function cargarHonorarios() {
 
 // --- Tabla de honorarios por cliente -------------------------------------
 
-// Cuenta cuántos períodos (meses o años) hay que pagar desde que se
-// configuró el honorario (created_at) hasta el período vigente, ambos
-// inclusive. Nunca da menos de 1 para la cuota mensual.
-function contarPeriodosAdeudables(fechaCreacion, periodicidad, cierreFiscalMes) {
+// Fecha "ancla" del período en el que cae `fecha`: el primer día del mes
+// (mensual) o el 1º de enero del año en que arrancó el ejercicio fiscal
+// vigente en esa fecha (anual, misma convención que
+// obtenerPeriodoVigente()/pagos_honorarios.periodo, que siempre guarda el
+// 1º de enero del año de inicio de ejercicio, no el año de cierre). Se usa
+// tanto para contar cuántos períodos pasaron (contarPeriodosAdeudables)
+// como para decidir qué pagos entran en el cálculo corriente cuando hay
+// una deuda congelada (ver calcularSaldoPorTipo).
+function calcularAnclaPeriodo(fecha, periodicidad, cierreFiscalMes) {
   if (periodicidad === 'mensual') {
-    const inicio = new Date(fechaCreacion.getFullYear(), fechaCreacion.getMonth(), 1);
+    return new Date(fecha.getFullYear(), fecha.getMonth(), 1);
+  }
+  const mes = fecha.getMonth() + 1;
+  const anioEjercicioInicio = mes > cierreFiscalMes ? fecha.getFullYear() : fecha.getFullYear() - 1;
+  return new Date(anioEjercicioInicio, 0, 1);
+}
+
+// Cuenta cuántos períodos (meses o años) hay que pagar desde `fechaInicio`
+// (honorarios.created_at, o el created_at de la deuda congelada pendiente
+// más reciente si el cliente+tipo tiene una -- ver calcularSaldoPorTipo)
+// hasta el período vigente, ambos inclusive. Nunca da menos de 1 para la
+// cuota mensual.
+function contarPeriodosAdeudables(fechaInicio, periodicidad, cierreFiscalMes) {
+  const inicio = calcularAnclaPeriodo(fechaInicio, periodicidad, cierreFiscalMes);
+
+  if (periodicidad === 'mensual') {
     const vigente = obtenerPeriodoVigente('mensual');
     const meses = (vigente.getFullYear() - inicio.getFullYear()) * 12 + (vigente.getMonth() - inicio.getMonth()) + 1;
     return Math.max(meses, 1);
   }
 
-  const mesCreacion = fechaCreacion.getMonth() + 1;
-  const anioEjercicioInicio = mesCreacion > cierreFiscalMes ? fechaCreacion.getFullYear() : fechaCreacion.getFullYear() - 1;
   const vigente = obtenerPeriodoVigente('anual', cierreFiscalMes);
-  let anios = Math.max(vigente.getFullYear() - anioEjercicioInicio + 1, 1);
+  let anios = Math.max(vigente.getFullYear() - inicio.getFullYear() + 1, 1);
 
   // Regla de febrero (confirmada por el usuario): la cuota anual del
   // período vigente no cuenta como adeudada hasta febrero de cada año, sin
@@ -312,6 +364,28 @@ function contarPeriodosAdeudables(fechaCreacion, periodicidad, cierreFiscalMes) 
   return anios;
 }
 
+// --- Deudas congeladas (diferidas sin condonar) ---------------------------
+
+// Todas las deudas congeladas TODAVÍA pendientes (pagada = false) de un
+// cliente, sin importar el tipo -- para el badge y el panel de gestión.
+function deudasCongeladasPendientesDeCliente(clienteId) {
+  return deudasCongeladasCache.filter((deuda) => deuda.cliente_id === clienteId && !deuda.pagada);
+}
+
+// La deuda congelada pendiente MÁS RECIENTE (por created_at) de un
+// cliente+tipo puntual, o null si no tiene ninguna. Es la que determina el
+// nuevo punto de partida del cálculo corriente (ver calcularSaldoPorTipo).
+function deudaCongeladaPendienteMasReciente(clienteId, tipoHonorario) {
+  const pendientes = deudasCongeladasPendientesDeCliente(clienteId).filter(
+    (deuda) => deuda.tipo_honorario === tipoHonorario
+  );
+  if (pendientes.length === 0) return null;
+
+  return pendientes.reduce((masReciente, actual) =>
+    new Date(actual.created_at) > new Date(masReciente.created_at) ? actual : masReciente
+  );
+}
+
 // Saldo pendiente de UNA de las dos cuotas (mensual o anual). Devuelve
 // null si el cliente no tiene esa cuota configurada.
 function calcularSaldoPorTipo(honorario, cliente, tipoHonorario) {
@@ -319,11 +393,32 @@ function calcularSaldoPorTipo(honorario, cliente, tipoHonorario) {
   if (monto === null || monto === undefined) return null;
 
   const cierreFiscalMes = cliente?.cierre_fiscal_mes ?? 12;
-  const periodos = contarPeriodosAdeudables(new Date(honorario.created_at), tipoHonorario, cierreFiscalMes);
 
-  const totalPagado = pagosCache
-    .filter((pago) => pago.cliente_id === honorario.cliente_id && pago.tipo_honorario === tipoHonorario)
-    .reduce((total, pago) => total + Number(pago.monto_pagado), 0);
+  // Si hay una deuda vieja congelada pendiente para este cliente+tipo, el
+  // cálculo corriente arranca de cero desde que se congeló (created_at de
+  // la más reciente) en vez de arrancar desde honorarios.created_at -- sin
+  // tocar ese created_at real, que sigue siendo la fecha de configuración
+  // real del honorario por si se usa en otro lado.
+  const deudaCongelada = deudaCongeladaPendienteMasReciente(honorario.cliente_id, tipoHonorario);
+  const fechaInicio = deudaCongelada ? new Date(deudaCongelada.created_at) : new Date(honorario.created_at);
+
+  const periodos = contarPeriodosAdeudables(fechaInicio, tipoHonorario, cierreFiscalMes);
+
+  let pagosDelTipo = pagosCache.filter(
+    (pago) => pago.cliente_id === honorario.cliente_id && pago.tipo_honorario === tipoHonorario
+  );
+
+  // Si el punto de partida se movió por una deuda congelada, los pagos de
+  // períodos ANTERIORES a ese punto ya quedaron reflejados en el monto que
+  // se congeló (lo tipeó quien la congeló) -- no se vuelven a restar acá,
+  // porque si se restaran de nuevo un pago viejo contaría dos veces (una
+  // en el monto congelado, otra acá) y el saldo corriente daría de menos.
+  if (deudaCongelada) {
+    const anclaPeriodoIso = formatearFechaISO(calcularAnclaPeriodo(fechaInicio, tipoHonorario, cierreFiscalMes));
+    pagosDelTipo = pagosDelTipo.filter((pago) => pago.periodo >= anclaPeriodoIso);
+  }
+
+  const totalPagado = pagosDelTipo.reduce((total, pago) => total + Number(pago.monto_pagado), 0);
 
   return Math.max(Number(monto) * periodos - totalPagado, 0);
 }
@@ -344,6 +439,29 @@ function dibujarBadgeEstado(resultado) {
   if (!resultado) return '<span class="texto-ayuda">Sin configurar</span>';
   if (resultado.estado === 'al_dia') return '<span class="badge badge-verde">Al día</span>';
   return `<span class="badge badge-rojo">Debe ${formatearGuaranies(resultado.saldoPendiente)}</span>`;
+}
+
+// Badge(s) secundario(s) de "Deuda congelada", aparte del badge principal
+// "Al día"/"Debe" -- con estilo neutro (ni verde ni rojo) a propósito, para
+// que no se lea como un mensaje urgente: es una deuda vieja que se sigue
+// debiendo, pero cuyo cobro quedó diferido a `fecha_acuerdo` y ya no cuenta
+// para el estado corriente. `tipoFiltro` ('mensual'/'anual'), si se pasa,
+// limita a las deudas de ese tipo y omite la etiqueta de tipo en el texto
+// (se usa desde la sección de Cuota Anual, donde el tipo ya es obvio por
+// contexto); sin filtro (tabla principal, que mezcla los dos tipos en una
+// sola fila) el texto aclara a cuál corresponde cada una.
+function dibujarBadgesDeudaCongelada(clienteId, tipoFiltro = null) {
+  const pendientes = deudasCongeladasPendientesDeCliente(clienteId).filter(
+    (deuda) => !tipoFiltro || deuda.tipo_honorario === tipoFiltro
+  );
+  if (pendientes.length === 0) return '';
+
+  return pendientes
+    .map((deuda) => {
+      const prefijoTipo = tipoFiltro ? '' : `${deuda.tipo_honorario === 'mensual' ? 'Mensual' : 'Anual'}: `;
+      return `<span class="badge badge-neutro" title="Deuda vieja congelada: se sigue debiendo, pero no cuenta para el estado corriente hasta la fecha de acuerdo">Deuda congelada -- ${prefijoTipo}${formatearGuaranies(deuda.monto)} (${formatearMesAnioCorto(deuda.fecha_acuerdo)})</span>`;
+    })
+    .join(' ');
 }
 
 function dibujarTablaHonorarios() {
@@ -370,18 +488,20 @@ function dibujarTablaHonorarios() {
   for (const cliente of clientesFiltrados) {
     const honorario = honorariosCache.find((h) => h.cliente_id === cliente.id);
     const resultado = calcularEstadoHonorario(honorario, cliente);
+    const badgesDeudaCongelada = dibujarBadgesDeudaCongelada(cliente.id);
 
     const filaCliente = document.createElement('tr');
     filaCliente.innerHTML = `
       <td>${escaparHtmlHonorarios(cliente.razon_social)}</td>
       <td>${honorario?.monto_mensual ? formatearGuaranies(honorario.monto_mensual) : '—'}</td>
       <td>${honorario?.monto_anual ? formatearGuaranies(honorario.monto_anual) : '—'}</td>
-      <td>${dibujarBadgeEstado(resultado)}</td>
+      <td>${dibujarBadgeEstado(resultado)}${badgesDeudaCongelada ? `<br />${badgesDeudaCongelada}` : ''}</td>
       <td class="celda-checkbox"><input type="checkbox" data-pagar-cliente="${cliente.id}" ${honorario ? '' : 'disabled'} /></td>
       <td>
         <button type="button" class="boton boton-chico" data-ficha-cliente-id="${cliente.id}" ${honorario ? '' : 'disabled'}>Ficha</button>
         <button type="button" class="boton boton-chico" data-editar-cuota-id="${cliente.id}">Editar cuota</button>
         <button type="button" class="boton boton-chico" data-detalle-cliente-id="${cliente.id}">Detalle</button>
+        <button type="button" class="boton boton-chico" data-congelar-deuda-id="${cliente.id}" ${honorario ? '' : 'disabled'}>Deuda congelada</button>
       </td>
     `;
     elTablaHonorariosBody.appendChild(filaCliente);
@@ -431,12 +551,13 @@ function dibujarSeccionHonorariosAnual() {
     const honorario = honorariosCache.find((h) => h.cliente_id === cliente.id);
     const saldoAnual = calcularSaldoPorTipo(honorario, cliente, 'anual') ?? 0;
     const estadoAnual = { estado: saldoAnual > 0 ? 'debe' : 'al_dia', saldoPendiente: saldoAnual };
+    const badgesDeudaCongeladaAnual = dibujarBadgesDeudaCongelada(cliente.id, 'anual');
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escaparHtmlHonorarios(cliente.razon_social)}</td>
       <td>${formatearGuaranies(honorario.monto_anual)}</td>
-      <td>${dibujarBadgeEstado(estadoAnual)}</td>
+      <td>${dibujarBadgeEstado(estadoAnual)}${badgesDeudaCongeladaAnual ? `<br />${badgesDeudaCongeladaAnual}` : ''}</td>
     `;
     elTablaHonorariosAnualBody.appendChild(tr);
   }
@@ -722,6 +843,134 @@ async function guardarCuotaInline(form) {
   }
 }
 
+// --- Congelar deuda vieja (diferir el cobro sin condonarla) ---------------
+//
+// Mismo espíritu de fila-expandible que el resto de esta pantalla: un
+// panel que junto muestra las deudas congeladas pendientes del cliente
+// (con botón "Marcar cobrada" cada una) y un mini-formulario para congelar
+// una deuda nueva (monto + fecha de acuerdo). Ver comentario largo al
+// principio del archivo y en schema.sql (tabla deudas_congeladas_honorarios)
+// para el diseño completo.
+
+function construirFormularioCongelarDeudaHtml(cliente, honorario) {
+  const tieneMensual = honorario.monto_mensual !== null && honorario.monto_mensual !== undefined;
+  const tieneAnual = honorario.monto_anual !== null && honorario.monto_anual !== undefined;
+  const tipoInicial = tieneMensual ? 'mensual' : 'anual';
+
+  const selectorTipoHtml = (tieneMensual && tieneAnual)
+    ? `
+      <div class="fila-form">
+        <label>Corresponde a</label>
+        <select class="campo-deuda-tipo">
+          <option value="mensual">Cuota Mensual</option>
+          <option value="anual">Cuota Anual</option>
+        </select>
+      </div>`
+    : `<input type="hidden" class="campo-deuda-tipo" value="${tipoInicial}" />`;
+
+  const pendientes = deudasCongeladasPendientesDeCliente(cliente.id);
+  const listaPendientesHtml = pendientes.length
+    ? `
+      <ul class="lista-resumen-importacion">
+        ${pendientes
+          .map((deuda) => `
+            <li>
+              ${deuda.tipo_honorario === 'mensual' ? 'Cuota Mensual' : 'Cuota Anual'}:
+              ${formatearGuaranies(deuda.monto)} -- se espera cobrar el ${formatearFechaVisibleHonorarios(deuda.fecha_acuerdo)}
+              <button type="button" class="boton boton-chico" data-marcar-deuda-pagada-id="${deuda.id}">Marcar cobrada</button>
+            </li>
+          `)
+          .join('')}
+      </ul>`
+    : '<p class="sin-datos">Este cliente no tiene deuda congelada pendiente.</p>';
+
+  return `
+    <div class="detalle-cliente-inline">
+      <h3 class="fila-form-titulo">Deuda Congelada — ${escaparHtmlHonorarios(cliente.razon_social)}</h3>
+      ${listaPendientesHtml}
+      <form class="form-congelar-deuda-inline" data-cliente-id="${cliente.id}">
+        <h3 class="fila-form-titulo">Congelar deuda nueva</h3>
+        <div class="grilla-form-inline">
+          ${selectorTipoHtml}
+          <div class="fila-form">
+            <label>Monto Congelado (Gs.)</label>
+            <input type="text" inputmode="numeric" class="campo-deuda-monto" required />
+          </div>
+          <div class="fila-form">
+            <label>Fecha de Acuerdo (se espera cobrar)</label>
+            <input type="date" class="campo-deuda-fecha-acuerdo" required />
+          </div>
+        </div>
+        <div class="acciones-form">
+          <button type="submit" class="boton boton-primario boton-chico">Congelar Deuda</button>
+          <button type="button" class="boton boton-secundario boton-chico" data-cancelar-inline>Cerrar</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function abrirFormularioCongelarDeuda(clienteId) {
+  const cliente = clientesCacheHonorarios.find((c) => c.id === clienteId);
+  const honorario = honorariosCache.find((h) => h.cliente_id === clienteId);
+  if (!cliente || !honorario) return;
+  abrirFilaExpandible(clienteId, construirFormularioCongelarDeudaHtml(cliente, honorario));
+}
+
+async function guardarDeudaCongeladaInline(form) {
+  const clienteId = Number(form.dataset.clienteId);
+  const tipo = form.querySelector('.campo-deuda-tipo').value;
+  const monto = Number(quitarPuntos(form.querySelector('.campo-deuda-monto').value));
+  const fechaAcuerdo = form.querySelector('.campo-deuda-fecha-acuerdo').value;
+
+  if (!monto || monto <= 0) {
+    mostrarMensajeHonorarios('Cargá un monto congelado válido.', 'error');
+    return;
+  }
+  if (!fechaAcuerdo) {
+    mostrarMensajeHonorarios('Cargá la fecha en la que se espera cobrar la deuda.', 'error');
+    return;
+  }
+
+  try {
+    const { error } = await supabaseHonorarios.from('deudas_congeladas_honorarios').insert({
+      cliente_id: clienteId,
+      tipo_honorario: tipo,
+      monto,
+      fecha_acuerdo: fechaAcuerdo,
+    });
+    if (error) throw error;
+
+    mostrarMensajeHonorarios('Deuda congelada correctamente: ya no cuenta para el estado corriente.');
+    await cargarHonorarios();
+  } catch (error) {
+    console.error('Error al congelar la deuda:', error);
+    mostrarMensajeHonorarios('No se pudo congelar la deuda.', 'error');
+  }
+}
+
+// Se marca "pagada" cuando finalmente se cobra la deuda vieja. A propósito
+// NO genera un pago en pagos_honorarios (ver comentario en schema.sql):
+// este monto no corresponde a un período puntual, sino a la suma de
+// varios períodos viejos, así que mezclarlo en pagos_honorarios rompería
+// la reconciliación período-por-período que hace la ficha de pago
+// imprimible. Queda resuelta acá mismo, aparte.
+async function marcarDeudaCongeladaPagada(deudaId) {
+  try {
+    const { error } = await supabaseHonorarios
+      .from('deudas_congeladas_honorarios')
+      .update({ pagada: true, fecha_pago: formatearFechaISO(new Date()) })
+      .eq('id', deudaId);
+    if (error) throw error;
+
+    mostrarMensajeHonorarios('Deuda congelada marcada como cobrada.');
+    await cargarHonorarios();
+  } catch (error) {
+    console.error('Error al marcar la deuda congelada como cobrada:', error);
+    mostrarMensajeHonorarios('No se pudo marcar la deuda como cobrada.', 'error');
+  }
+}
+
 // --- Detalle de pagos de un cliente ---------------------------------------
 
 // Fila de una tabla de pagos (Historial de Pagos o el detalle de un
@@ -755,10 +1004,13 @@ function construirDetalleClienteHtml(cliente) {
     ? pagosCliente.map((pago) => construirFilaPagoHtml(pago, cliente)).join('')
     : `<tr><td colspan="${PAGO_COLSPAN}" class="sin-datos">Todavía no se registró ningún pago.</td></tr>`;
 
+  const badgesDeudaCongelada = dibujarBadgesDeudaCongelada(cliente.id);
+
   return `
     <div class="detalle-cliente-inline">
       <h3 class="fila-form-titulo">Historial de Pagos — ${escaparHtmlHonorarios(cliente.razon_social)}</h3>
       <p>Saldo pendiente: ${dibujarBadgeEstado(resultado)}</p>
+      ${badgesDeudaCongelada ? `<p>${badgesDeudaCongelada}</p>` : ''}
       <div class="tabla-scroll">
         <table class="tabla-clientes">
           <thead>
@@ -818,9 +1070,10 @@ elTablaHonorariosBody.addEventListener('change', (evento) => {
 });
 
 // Formato de miles en vivo para los inputs de dinero de los mini-formularios
-// (pago y editar cuota), armados dinámicamente dentro de esta tabla.
+// (pago, editar cuota y congelar deuda), armados dinámicamente dentro de
+// esta tabla.
 elTablaHonorariosBody.addEventListener('input', (evento) => {
-  const campoDinero = evento.target.closest('.campo-pago-monto, .campo-cuota-mensual, .campo-cuota-anual');
+  const campoDinero = evento.target.closest('.campo-pago-monto, .campo-cuota-mensual, .campo-cuota-anual, .campo-deuda-monto');
   if (campoDinero) formatearInputDineroEnVivo(campoDinero);
 });
 
@@ -843,6 +1096,18 @@ elTablaHonorariosBody.addEventListener('click', (evento) => {
   const botonDetalle = evento.target.closest('button[data-detalle-cliente-id]');
   if (botonDetalle) {
     abrirDetalleCliente(Number(botonDetalle.dataset.detalleClienteId));
+    return;
+  }
+
+  const botonCongelarDeuda = evento.target.closest('button[data-congelar-deuda-id]');
+  if (botonCongelarDeuda) {
+    abrirFormularioCongelarDeuda(Number(botonCongelarDeuda.dataset.congelarDeudaId));
+    return;
+  }
+
+  const botonMarcarDeudaPagada = evento.target.closest('button[data-marcar-deuda-pagada-id]');
+  if (botonMarcarDeudaPagada) {
+    marcarDeudaCongeladaPagada(Number(botonMarcarDeudaPagada.dataset.marcarDeudaPagadaId));
     return;
   }
 
@@ -879,6 +1144,13 @@ elTablaHonorariosBody.addEventListener('submit', async (evento) => {
   if (formCuota) {
     evento.preventDefault();
     await guardarCuotaInline(formCuota);
+    return;
+  }
+
+  const formDeuda = evento.target.closest('form.form-congelar-deuda-inline');
+  if (formDeuda) {
+    evento.preventDefault();
+    await guardarDeudaCongeladaInline(formDeuda);
   }
 });
 
