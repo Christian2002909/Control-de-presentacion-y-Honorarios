@@ -503,6 +503,22 @@ table.tabla-honorarios-grilla th {
   flex-wrap: wrap;
 }
 
+/* El aviso flota SOBRE el borde superior de la tabla (ver
+   .presentaciones-area-tabla) en vez de empujarla hacia abajo al
+   aparecer/desaparecer -- la sombra ayuda a leerlo como algo flotante,
+   no como parte del layout normal de la fila. */
+.presentaciones-area-tabla {
+  position: relative;
+}
+
+.aviso-deshacer-flotante {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
 .aviso-deshacer-acciones {
   display: flex;
   gap: 16px;
