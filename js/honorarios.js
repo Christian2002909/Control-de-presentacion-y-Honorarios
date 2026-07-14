@@ -662,16 +662,24 @@ function dibujarTablaHonorarios() {
         const pagoDelMes = pagosCache.some(
           (p) => p.cliente_id === cliente.id && p.tipo_honorario === 'mensual' && p.periodo === periodoISO
         );
+        // Mismo contenedor angosto que usa Historial para sus celdas
+        // (.celda-historial + .celda-historial-toggle-compacta, padding
+        // delegado al <label> de adentro) para que la fila quede igual de
+        // apretada -- pero sin fecha ni color de estado (el usuario pidió
+        // sacar eso), así que no lleva <span> ni clase celda-historial-*
+        // de color, solo el checkbox pelado.
         celdasMeses.push(`
-          <td class="celda-checkbox">
-            <input
-              type="checkbox"
-              class="checkbox-grilla-honorarios"
-              data-cliente-id="${cliente.id}"
-              data-mes-pago="${mes}"
-              data-anio-pago="${anioActual}"
-              ${pagoDelMes ? 'checked' : ''}
-            />
+          <td class="celda-historial">
+            <label class="celda-historial-toggle celda-historial-toggle-compacta">
+              <input
+                type="checkbox"
+                class="checkbox-grilla-honorarios"
+                data-cliente-id="${cliente.id}"
+                data-mes-pago="${mes}"
+                data-anio-pago="${anioActual}"
+                ${pagoDelMes ? 'checked' : ''}
+              />
+            </label>
           </td>
         `);
       }
