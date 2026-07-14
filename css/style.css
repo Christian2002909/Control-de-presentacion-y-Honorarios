@@ -299,10 +299,11 @@ table.tabla-honorarios-grilla th {
   font-size: 11px;
 }
 
-/* Las celdas de mes reutilizan .celda-historial-toggle (mismo diseño que
-   Historial): el padding vive en el <label> de adentro, no acá, para que
-   no quede doble relleno -- mismo criterio que .tabla-historial-mensual/
-   .tabla-presentaciones. */
+/* Celdas de mes: mismo contenedor angosto que ya usa Historial
+   (.celda-historial-toggle-compacta, padding: 3px 2px en el <label> de
+   adentro) para que la fila quede igual de apretada que ahí -- el padding
+   de la celda en sí queda en 0 para no sumarse al del label y duplicar
+   el espacio, mismo criterio que .tabla-historial-mensual td.celda-historial. */
 .tabla-honorarios-grilla td.celda-historial {
   padding: 0;
 }
