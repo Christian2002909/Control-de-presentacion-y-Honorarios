@@ -411,6 +411,22 @@ input[type='search'] {
   white-space: nowrap;
 }
 
+/* Presentaciones: tabla compacta con una columna por obligación (Fase 5).
+   Reutiliza el mismo toggle de celda que Historial (.celda-historial-*);
+   acá solo se ajusta el padding, igual que hace .tabla-historial-mensual
+   arriba, para que el <label> interno no quede con doble relleno. */
+.tabla-presentaciones td.celda-historial {
+  padding: 0;
+}
+
+/* Celda de una obligación que el cliente no tiene asignada: no aplica, así
+   que no lleva checkbox -- solo un guion centrado y en gris para que se
+   note de un vistazo que no hay nada que marcar ahí. */
+.celda-obligacion-na {
+  text-align: center;
+  color: var(--color-texto-secundario);
+}
+
 .fila-form {
   margin-bottom: 14px;
   display: flex;
@@ -539,106 +555,10 @@ input[type='search'] {
   cursor: pointer;
 }
 
-/* Presentaciones: un bloque por cliente (en vez de una fila de tabla), con
-   su lista de obligaciones pendientes debajo -- cada cliente puede tener
-   una cantidad distinta de obligaciones pendientes, así que una tabla de
-   columnas fijas no alcanza. */
-.lista-clientes-presentaciones {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.cliente-presentacion {
-  border: 1px solid var(--color-borde);
-  border-radius: 8px;
-  padding: 12px 14px;
-}
-
-.cliente-presentacion-encabezado {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.cliente-presentacion-numero {
-  color: var(--color-texto-secundario);
-  font-size: 13px;
-  font-weight: 600;
-  min-width: 20px;
-}
-
-.cliente-presentacion-datos {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.cliente-presentacion-datos .boton-link {
-  font-size: 15px;
-  font-weight: 600;
-  text-align: left;
-}
-
-.cliente-presentacion-detalle {
-  font-size: 13px;
-  color: var(--color-texto-secundario);
-}
-
-.lista-obligaciones-pendientes {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.obligacion-pendiente {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 10px;
-  background-color: var(--color-chico-fondo);
-  border-radius: 6px;
-  flex-wrap: wrap;
-}
-
-.obligacion-pendiente-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.obligacion-pendiente-nombre {
-  color: var(--color-chico-texto);
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.obligacion-pendiente-fecha {
-  font-size: 12px;
-  color: var(--color-texto-secundario);
-}
-
-.obligacion-pendiente-check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-texto);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.obligacion-pendiente-check input[type='checkbox'] {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
+/* Presentaciones dejó de armar un bloque por cliente con checkboxes
+   apilados: ahora es una tabla de verdad (.tabla-clientes.tabla-presentaciones,
+   ver más abajo la regla ".tabla-presentaciones td.celda-historial") con una
+   columna por obligación, así que ya no hace falta este layout de bloques. */
 
 .badge {
   padding: 3px 10px;

@@ -221,20 +221,29 @@
          sola obligación a la vez. -->
     <section id="vista-presentaciones" class="vista">
       <section class="tarjeta">
-        <h2>Presentaciones Pendientes</h2>
-        <div class="fila-form">
-          <label for="presentaciones-filtro-cartera">Responsable:</label>
-          <select id="presentaciones-filtro-cartera">
-            <!-- Las opciones se arman dinámicamente desde js/presentaciones.js:
-                 "Yo", una por cada perfil (tabla perfiles) y "Todos". -->
-          </select>
+        <h2>Presentaciones</h2>
+        <div class="fila-form-filtros-pagos">
+          <div class="fila-form">
+            <label for="presentaciones-filtro-cartera">Responsable:</label>
+            <select id="presentaciones-filtro-cartera">
+              <!-- Las opciones se arman dinámicamente desde js/presentaciones.js:
+                   "Yo", una por cada perfil (tabla perfiles) y "Todos". -->
+            </select>
+          </div>
+          <div class="fila-form">
+            <label for="presentaciones-filtro-obligacion">Obligación:</label>
+            <select id="presentaciones-filtro-obligacion">
+              <!-- Las opciones se arman dinámicamente desde js/presentaciones.js:
+                   "Todas" (comportamiento automático) y una por obligación del catálogo. -->
+            </select>
+          </div>
         </div>
         <div id="presentaciones-mensaje" class="mensaje mensaje-error oculto"></div>
         <div id="presentaciones-grupos">
           <!-- Los grupos "VENCIMIENTO N - FECHA D" se arman dinámicamente desde js/presentaciones.js -->
         </div>
         <p id="sin-presentaciones" class="sin-datos oculto">
-          No hay obligaciones pendientes para mostrar.
+          No hay clientes con obligaciones para mostrar.
         </p>
       </section>
     </section>
