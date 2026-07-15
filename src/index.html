@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data:; style-src 'self' 'unsafe-inline';" />
+<title>Agenda Personal</title>
+<link rel="stylesheet" href="styles/base.css" />
+<link rel="stylesheet" href="styles/themes.css" />
+<link rel="stylesheet" href="styles/liquid-glass.css" />
+</head>
+<body>
+  <div id="app">
+    <nav id="panel" class="glass">
+      <div class="logo">🗓️ Agenda Personal</div>
+      <button class="nav-btn" data-view="agenda">Tareas</button>
+      <button class="nav-btn" data-view="config">Configuración</button>
+    </nav>
+
+    <main id="contenido">
+      <section id="vista-agenda" class="vista">
+        <header class="encabezado">
+          <h1>Mis tareas</h1>
+          <button id="btn-nueva-tarea" class="btn-primario glass">+ Nueva tarea</button>
+        </header>
+        <div id="lista-tareas" class="lista-tareas"></div>
+      </section>
+
+      <section id="vista-config" class="vista" hidden>
+        <header class="encabezado">
+          <h1>Configuración</h1>
+        </header>
+
+        <div class="grupo glass">
+          <h2>Apariencia</h2>
+          <label>Tema
+            <select id="cfg-tema">
+              <option value="claro">Claro</option>
+              <option value="oscuro">Oscuro</option>
+              <option value="sistema">Sistema</option>
+            </select>
+          </label>
+          <label>Color del programa
+            <select id="cfg-color">
+              <option value="normal">Normal</option>
+              <option value="verde">Verde</option>
+              <option value="coral">Coral</option>
+              <option value="naranja">Naranja</option>
+              <option value="turquesa">Turquesa</option>
+              <option value="lila">Lila</option>
+            </select>
+          </label>
+          <label id="cfg-variante-lila-fila" hidden>Variante de Lila
+            <select id="cfg-variante-lila">
+              <option value="lila">Lila</option>
+              <option value="lavanda">Lavanda</option>
+              <option value="tulipanes">Tulipanes</option>
+            </select>
+          </label>
+          <label>Posición del panel
+            <select id="cfg-posicion">
+              <option value="arriba">Arriba</option>
+              <option value="abajo">Abajo</option>
+              <option value="izquierda">Izquierda</option>
+              <option value="derecha">Derecha</option>
+            </select>
+          </label>
+          <label>Fondo
+            <select id="cfg-fondo-tipo">
+              <option value="color">Color solido</option>
+              <option value="imagen">Imagen</option>
+            </select>
+          </label>
+          <input type="color" id="cfg-fondo-color" />
+          <button id="btn-elegir-imagen" class="btn-secundario">Elegir imagen de fondo</button>
+        </div>
+
+        <div class="grupo glass">
+          <h2>Avisos por correo</h2>
+          <label>Correo electrónico
+            <input type="email" id="cfg-email-direccion" placeholder="tucorreo@gmail.com" />
+          </label>
+          <label>Contraseña de aplicación
+            <input type="password" id="cfg-email-password" placeholder="Contraseña de aplicación" />
+          </label>
+          <label>Servidor SMTP
+            <input type="text" id="cfg-email-host" placeholder="smtp.gmail.com" />
+          </label>
+          <label>Puerto SMTP
+            <input type="number" id="cfg-email-puerto" placeholder="465" />
+          </label>
+        </div>
+
+        <div class="grupo glass">
+          <h2>Inicio</h2>
+          <label class="checkbox">
+            <input type="checkbox" id="cfg-autostart" />
+            Iniciar Agenda Personal con Windows
+          </label>
+        </div>
+
+        <div class="grupo glass">
+          <h2>Sincronización con Google Calendar (opcional)</h2>
+          <label>Client ID
+            <input type="text" id="cfg-google-clientid" />
+          </label>
+          <label>Client Secret
+            <input type="text" id="cfg-google-clientsecret" />
+          </label>
+          <button id="btn-google-conectar" class="btn-secundario">Conectar con Google</button>
+          <span id="google-estado" class="estado"></span>
+        </div>
+
+        <div class="grupo glass">
+          <h2>Sincronización con Apple Reminders / iCloud (opcional)</h2>
+          <label>Apple ID
+            <input type="email" id="cfg-icloud-appleid" />
+          </label>
+          <label>Contraseña de aplicación
+            <input type="password" id="cfg-icloud-password" />
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" id="cfg-icloud-activo" />
+            Activar sincronización con iCloud
+          </label>
+        </div>
+
+        <button id="btn-guardar-config" class="btn-primario glass">Guardar configuración</button>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal-tarea" class="modal" hidden>
+    <div class="modal-contenido glass">
+      <h2 id="modal-titulo">Nueva tarea</h2>
+      <input type="hidden" id="tarea-id" />
+      <label>Título
+        <input type="text" id="tarea-titulo" placeholder="¿Qué tienes que hacer?" />
+      </label>
+      <label>Fecha límite (último día)
+        <input type="date" id="tarea-fecha-limite" />
+      </label>
+      <label>Notas
+        <textarea id="tarea-notas" rows="3"></textarea>
+      </label>
+
+      <div class="campo-lista">
+        <span>Avisarme (días antes del último día)</span>
+        <div id="lista-dias-aviso" class="chips"></div>
+        <div class="agregar-fila">
+          <input type="number" id="nuevo-dia-aviso" min="0" placeholder="Ej. 3" />
+          <button id="btn-agregar-dia" class="btn-secundario">+ Agregar</button>
+        </div>
+      </div>
+
+      <div class="campo-lista">
+        <span>Horarios del aviso</span>
+        <div id="lista-horarios" class="chips"></div>
+        <div class="agregar-fila">
+          <input type="time" id="nuevo-horario" />
+          <button id="btn-agregar-horario" class="btn-secundario">+ Agregar</button>
+        </div>
+      </div>
+
+      <div class="modal-acciones">
+        <button id="btn-cancelar-tarea" class="btn-secundario">Cancelar</button>
+        <button id="btn-eliminar-tarea" class="btn-peligro" hidden>Eliminar</button>
+        <button id="btn-guardar-tarea" class="btn-primario">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="store.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

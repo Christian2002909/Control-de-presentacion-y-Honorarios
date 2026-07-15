@@ -1,0 +1,221 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: var(--fg);
+  background-color: var(--bg);
+  transition: background-color .2s ease, color .2s ease;
+}
+
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+}
+
+#app[data-posicion="izquierda"] { flex-direction: row; }
+#app[data-posicion="derecha"] { flex-direction: row-reverse; }
+#app[data-posicion="arriba"] { flex-direction: column; }
+#app[data-posicion="abajo"] { flex-direction: column-reverse; }
+
+#panel {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: 1.25rem 1rem;
+  min-width: 210px;
+}
+
+#app[data-posicion="arriba"] #panel,
+#app[data-posicion="abajo"] #panel {
+  flex-direction: row;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.logo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: .5rem;
+}
+
+.nav-btn {
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  padding: .6rem .9rem;
+  border-radius: .6rem;
+  text-align: left;
+  cursor: pointer;
+  font-size: .95rem;
+}
+
+.nav-btn:hover { background: var(--hover-bg); }
+.nav-btn.activo {
+  background: var(--accent);
+  color: #fff;
+}
+
+#contenido {
+  flex: 1;
+  padding: 1.5rem 2rem;
+  overflow-y: auto;
+}
+
+.vista[hidden] { display: none; }
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+h1 { margin: 0; font-size: 1.4rem; }
+h2 { margin: 0 0 .75rem 0; font-size: 1.05rem; }
+
+.btn-primario, .btn-secundario, .btn-peligro {
+  border: none;
+  border-radius: .6rem;
+  padding: .55rem 1rem;
+  cursor: pointer;
+  font-size: .9rem;
+}
+
+.btn-primario { background: var(--accent); color: #fff; }
+.btn-secundario { background: var(--panel-solid); color: var(--fg); }
+.btn-peligro { background: #e0554a; color: #fff; }
+
+.lista-tareas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.tarjeta-tarea {
+  padding: 1rem;
+  border-radius: 1rem;
+}
+
+.tarjeta-tarea.completada { opacity: .55; }
+
+.tarjeta-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: .5rem;
+}
+
+.tarjeta-cabecera h3 { margin: 0; font-size: 1rem; }
+
+.badge {
+  font-size: .72rem;
+  padding: .2rem .5rem;
+  border-radius: 1rem;
+  background: var(--accent);
+  color: #fff;
+  white-space: nowrap;
+}
+.badge.urgente { background: #e0a02a; }
+.badge.vencida { background: #e0554a; }
+
+.tarjeta-fecha { font-size: .85rem; opacity: .8; margin: .4rem 0; }
+.tarjeta-notas { font-size: .85rem; opacity: .75; }
+
+.tarjeta-chips, .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  margin: .5rem 0;
+}
+
+.chip {
+  background: var(--panel-solid);
+  border-radius: 1rem;
+  padding: .25rem .6rem;
+  font-size: .78rem;
+}
+.chip.removible { cursor: pointer; }
+
+.tarjeta-acciones {
+  display: flex;
+  gap: .5rem;
+  margin-top: .6rem;
+}
+
+.vacio { opacity: .7; }
+
+.grupo {
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  margin-bottom: 1rem;
+  max-width: 520px;
+}
+
+.grupo label {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  font-size: .85rem;
+  margin-bottom: .7rem;
+}
+
+.grupo label.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: .5rem;
+}
+
+input, select, textarea {
+  padding: .5rem .6rem;
+  border-radius: .5rem;
+  border: 1px solid var(--borde);
+  background: var(--input-bg);
+  color: var(--fg);
+  font-size: .9rem;
+}
+
+.estado { font-size: .8rem; margin-left: .5rem; opacity: .8; }
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal[hidden] { display: none; }
+
+.modal-contenido {
+  width: min(520px, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  border-radius: 1.1rem;
+}
+
+.modal-contenido label {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  margin-bottom: .8rem;
+  font-size: .85rem;
+}
+
+.campo-lista { margin-bottom: .9rem; }
+.campo-lista > span { font-size: .85rem; display: block; margin-bottom: .3rem; }
+
+.agregar-fila { display: flex; gap: .5rem; }
+.agregar-fila input { flex: 1; }
+
+.modal-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: .6rem;
+  margin-top: 1rem;
+}

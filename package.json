@@ -1,0 +1,40 @@
+{
+  "name": "agenda-personal",
+  "version": "1.0.0",
+  "description": "Agenda personal de tareas y recordatorios (Windows, sin usuario, con avisos y sincronizacion opcional)",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win nsis"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "electron-store": "^8.2.0",
+    "googleapis": "^140.0.1",
+    "nodemailer": "^6.9.14",
+    "tsdav": "^2.0.6"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.agendapersonal.app",
+    "productName": "Agenda Personal",
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
