@@ -17,6 +17,7 @@ function autenticar(config) {
     const oAuth2Client = crearCliente(config);
     const authUrl = oAuth2Client.generateAuthUrl({
       access_type: 'offline',
+      prompt: 'consent', // fuerza obtener un refresh_token para no volver a pedir permiso
       scope: ['https://www.googleapis.com/auth/calendar.events']
     });
 

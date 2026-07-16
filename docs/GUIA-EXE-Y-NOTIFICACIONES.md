@@ -104,4 +104,69 @@ En la app → **Configuración** → sección **"Avisos por correo"**:
 - [ ] ¿"Asistente de concentración / No molestar" está desactivado?
 - [ ] ¿La hora del aviso ya pasó y la fecha/días son correctos?
 - [ ] Para el correo: ¿usaste una **contraseña de aplicación** (no la normal) y el
-      SMTP/puerto correctos?
+      SMTP/puerto correctos? Usa el botón **"Probar correo"** para ver el error exacto.
+
+> **Tip:** en Configuración → Avisos por correo hay dos botones: **"Probar correo"**
+> y **"Probar notificación"**. Úsalos para verificar al instante que cada cosa funciona.
+
+---
+
+## Parte 3 — Sincronizar con Google Calendar y Apple Recordatorios
+
+Las dos son **opcionales** e independientes. Puedes activar una, la otra, o ambas.
+Una vez configuradas, **cada tarea que crees se guarda sola** en el calendario/
+recordatorio, sin que tengas que confirmar nada más en tu dispositivo.
+
+Aclaración importante:
+- El **correo** usa una **contraseña de aplicación** (la que ya creaste en Google). Eso
+  es SOLO para el correo.
+- El **calendario de Google** NO usa contraseña de aplicación: usa unas credenciales
+  llamadas **OAuth (Client ID / Client Secret)**. Es gratis y se hace una sola vez.
+
+### A) Google Calendar (una sola vez)
+
+1. Entra a **Google Cloud Console**: https://console.cloud.google.com/
+2. Arriba, crea un **proyecto nuevo** (nombre cualquiera, ej. "Agenda Personal").
+3. En el buscador escribe **"Google Calendar API"** → ábrela → pulsa **Habilitar**.
+4. Menú → **APIs y servicios** → **Pantalla de consentimiento de OAuth**:
+   - Tipo de usuario: **Externo** → Crear.
+   - Pon un nombre de app y tu correo donde lo pida.
+   - En **Usuarios de prueba**, agrega **tu propio correo de Gmail**. (Importante, si no
+     no te dejará autorizar.)
+   - Guarda.
+5. Menú → **APIs y servicios** → **Credenciales** → **Crear credenciales** →
+   **ID de cliente de OAuth**:
+   - Tipo de aplicación: **Aplicación de escritorio**.
+   - Crear. Se mostrará un **Client ID** y un **Client Secret** → cópialos.
+6. En la app → **Configuración** → **Sincronización con Google Calendar**:
+   - Pega el **Client ID** y el **Client Secret**.
+   - Pulsa **"Conectar con Google"** → se abre el navegador → inicia sesión y **Permitir**.
+     (Si sale un aviso de "app no verificada", pulsa "Continuar" → es tu propia app.)
+   - Cuando diga **"Conectado"**, listo.
+7. A partir de ahí, **cada tarea nueva crea un evento** en tu Google Calendar
+   automáticamente, sin volver a pedir permiso.
+
+### B) Apple Recordatorios / iCloud (una sola vez)
+
+Apple no tiene API en Windows, pero funciona con el protocolo estándar CalDAV:
+
+1. Entra a **https://appleid.apple.com/** e inicia sesión.
+2. Asegúrate de tener activada la **verificación en dos pasos** (autenticación de dos
+   factores). Es obligatorio para el siguiente paso.
+3. Busca **"Contraseñas de aplicaciones"** → **Generar una contraseña específica**
+   (ponle un nombre, ej. "Agenda") → te dará una clave tipo `abcd-efgh-ijkl-mnop`.
+4. En la app → **Configuración** → **Sincronización con Apple Reminders / iCloud**:
+   - **Apple ID**: tu correo de iCloud/Apple.
+   - **Contraseña de aplicación**: la clave que acabas de generar.
+   - Marca **"Activar sincronización con iCloud"**.
+   - Pulsa **Guardar configuración**.
+5. A partir de ahí, **cada tarea nueva crea un recordatorio** en tu app Recordatorios
+   de iCloud (visible en iPhone, Mac, etc.), automáticamente.
+
+### Si la sincronización falla
+La app ahora te muestra un **aviso con el error** cuando no logra sincronizar una
+tarea. Errores comunes:
+- **Google**: "invalid_client" → Client ID/Secret mal copiados. "access_denied" →
+  falta agregar tu correo como usuario de prueba en la pantalla de consentimiento.
+- **iCloud**: error de autenticación → revisa el Apple ID y usa la **contraseña de
+  aplicación** (no tu contraseña normal), con la verificación en dos pasos activada.
