@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, nativeTheme, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, MenuItem, Notification, ipcMain, nativeTheme, nativeImage, dialog } = require('electron');
 const path = require('path');
 const nodemailer = require('nodemailer');
 
@@ -21,11 +21,51 @@ function crearVentana() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      spellcheck: true
     }
   });
 
   mainWindow.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
+
+  // Corrector ortográfico en español
+  try {
+    mainWindow.webContents.session.setSpellCheckerLanguages(['es']);
+  } catch (err) {
+    try {
+      mainWindow.webContents.session.setSpellCheckerLanguages(['es-ES']);
+    } catch (e) {
+      console.error('No se pudo activar el corrector en español:', e.message);
+    }
+  }
+
+  // Menú contextual (clic derecho): sugerencias de ortografía + cortar/copiar/pegar
+  mainWindow.webContents.on('context-menu', (evento, params) => {
+    const menu = new Menu();
+
+    for (const sugerencia of params.dictionarySuggestions) {
+      menu.append(new MenuItem({
+        label: sugerencia,
+        click: () => mainWindow.webContents.replaceMisspelling(sugerencia)
+      }));
+    }
+
+    if (params.misspelledWord) {
+      menu.append(new MenuItem({
+        label: 'Agregar al diccionario',
+        click: () => mainWindow.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+      }));
+      menu.append(new MenuItem({ type: 'separator' }));
+    }
+
+    if (params.isEditable || params.selectionText) {
+      menu.append(new MenuItem({ label: 'Cortar', role: 'cut', enabled: params.editFlags.canCut }));
+      menu.append(new MenuItem({ label: 'Copiar', role: 'copy', enabled: params.editFlags.canCopy }));
+      menu.append(new MenuItem({ label: 'Pegar', role: 'paste', enabled: params.editFlags.canPaste }));
+    }
+
+    if (menu.items.length) menu.popup();
+  });
 
   mainWindow.on('close', (evento) => {
     if (!saliendo) {
