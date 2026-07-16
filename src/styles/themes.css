@@ -34,27 +34,24 @@
 }
 
 /*
-  Fondos decorativos (presets del selector "Fondo").
-  Sobrescriben el degradado por defecto que define base.css sobre <body>.
+  Fondos decorativos ILUSTRADOS (presets del selector "Fondo").
+  Papel tapiz vectorial (SVG) de flores; cubre toda la ventana.
 */
 body[data-fondo="lavanda"] {
-  background:
-    radial-gradient(1000px 700px at 15% 10%, #efe7ff 0%, transparent 60%),
-    linear-gradient(135deg, #efeaff 0%, #e3d9fb 45%, #cdb8f2 100%) !important;
+  background: url("../../assets/fondo-lavanda.svg") center / cover no-repeat fixed !important;
 }
-:root[data-tema="oscuro"] body[data-fondo="lavanda"] {
-  background:
-    radial-gradient(1000px 700px at 15% 10%, #2a2140 0%, transparent 60%),
-    linear-gradient(135deg, #1c1730 0%, #241a3d 50%, #2e2150 100%) !important;
+body[data-fondo="tulipanes"] {
+  background: url("../../assets/fondo-tulipanes.svg") center / cover no-repeat fixed !important;
 }
 
-body[data-fondo="tulipanes"] {
+/* En modo oscuro, se oscurece la ilustración con una capa encima para conservar contraste */
+:root[data-tema="oscuro"] body[data-fondo="lavanda"] {
   background:
-    radial-gradient(900px 600px at 85% 15%, #ffe0b8 0%, transparent 55%),
-    linear-gradient(135deg, #ffe3ec 0%, #ffc6d4 40%, #ff9fb0 70%, #ffbf9a 100%) !important;
+    linear-gradient(rgba(10, 8, 20, .58), rgba(10, 8, 20, .58)),
+    url("../../assets/fondo-lavanda.svg") center / cover no-repeat fixed !important;
 }
 :root[data-tema="oscuro"] body[data-fondo="tulipanes"] {
   background:
-    radial-gradient(900px 600px at 85% 15%, #3a2230 0%, transparent 55%),
-    linear-gradient(135deg, #2a1620 0%, #3a1c2a 50%, #402032 100%) !important;
+    linear-gradient(rgba(20, 8, 14, .58), rgba(20, 8, 14, .58)),
+    url("../../assets/fondo-tulipanes.svg") center / cover no-repeat fixed !important;
 }
