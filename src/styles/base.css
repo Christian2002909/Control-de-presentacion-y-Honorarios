@@ -6,8 +6,17 @@ html, body {
   height: 100%;
   font-family: 'Segoe UI', system-ui, sans-serif;
   color: var(--fg);
-  background-color: var(--bg);
-  transition: background-color .2s ease, color .2s ease;
+  transition: color .2s ease;
+}
+
+/* Fondo degradado por defecto (derivado del color de acento) para que el
+   vidrio translúcido tenga contenido/color que refractar detrás. */
+body {
+  background:
+    radial-gradient(1100px 700px at 12% 8%, color-mix(in srgb, var(--accent) 42%, transparent), transparent 60%),
+    radial-gradient(1000px 800px at 92% 100%, color-mix(in srgb, var(--accent-2) 36%, transparent), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
 }
 
 #app {

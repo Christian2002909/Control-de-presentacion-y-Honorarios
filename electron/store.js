@@ -3,9 +3,8 @@ const Store = require('electron-store');
 const defaultConfig = {
   tema: 'sistema',
   colorPrograma: 'normal',
-  varianteLila: 'lila',
   posicionPanel: 'izquierda',
-  fondo: { tipo: 'color', valor: '' },
+  fondo: { tipo: 'degradado', valor: '' },
   email: { direccion: '', appPassword: '', smtpHost: 'smtp.gmail.com', smtpPort: 465 },
   iniciarConWindows: false,
   googleCalendar: { clientId: '', clientSecret: '', tokens: null, activo: false },

@@ -1,69 +1,60 @@
-/* Paletas de color base (independientes del modo claro/oscuro) */
-:root[data-color="normal"] {
-  --accent: #4f7cff;
-  --accent-2: #6c63ff;
-}
-:root[data-color="verde"] {
-  --accent: #2e9e6b;
-  --accent-2: #43c088;
-}
-:root[data-color="coral"] {
-  --accent: #ef5350;
-  --accent-2: #ff7b73;
-}
-:root[data-color="naranja"] {
-  --accent: #fb8c00;
-  --accent-2: #ffa726;
-}
-:root[data-color="turquesa"] {
-  --accent: #26a69a;
-  --accent-2: #4db6ac;
-}
-
-/* Familia Lila y sus variantes (solo se aplican cuando el color es "lila") */
-:root[data-color="lila"] {
-  --accent: #9575cd;
-  --accent-2: #7e57c2;
-}
-:root[data-color="lavanda"] {
-  --accent: #b39ddb;
-  --accent-2: #d1c4e9;
-}
-:root[data-color="tulipanes"] {
-  --accent: #f06292;
-  --accent-2: #ff8a65;
-}
+/* Paletas de color de acento (independientes del modo claro/oscuro) */
+:root[data-color="normal"]   { --accent: #4f7cff; --accent-2: #6c63ff; }
+:root[data-color="verde"]    { --accent: #2e9e6b; --accent-2: #43c088; }
+:root[data-color="coral"]    { --accent: #ef5350; --accent-2: #ff7b73; }
+:root[data-color="naranja"]  { --accent: #fb8c00; --accent-2: #ffa726; }
+:root[data-color="turquesa"] { --accent: #26a69a; --accent-2: #4db6ac; }
+:root[data-color="lila"]     { --accent: #9575cd; --accent-2: #7e57c2; }
 
 /* Modo claro (por defecto) */
 :root, :root[data-tema="claro"] {
-  --bg: #f4f5fa;
+  --bg: #eef0f7;
   --fg: #1d1d24;
-  --panel-solid: rgba(255, 255, 255, .6);
-  --input-bg: rgba(255, 255, 255, .8);
+  --panel-solid: rgba(255, 255, 255, .55);
+  --input-bg: rgba(255, 255, 255, .7);
   --hover-bg: rgba(0, 0, 0, .05);
   --borde: rgba(0, 0, 0, .12);
-  --glass-bg: rgba(255, 255, 255, .45);
-  --glass-borde: rgba(255, 255, 255, .6);
+  /* Vidrio: muy translúcido para que se vea el fondo detrás (estilo Apple) */
+  --glass-bg: rgba(255, 255, 255, .28);
+  --glass-borde: rgba(255, 255, 255, .55);
+  --glass-rim: rgba(255, 255, 255, .65);
 }
 
 /* Modo oscuro */
 :root[data-tema="oscuro"] {
-  --bg: #14141a;
+  --bg: #12121a;
   --fg: #eceef5;
-  --panel-solid: rgba(255, 255, 255, .08);
-  --input-bg: rgba(255, 255, 255, .07);
+  --panel-solid: rgba(255, 255, 255, .1);
+  --input-bg: rgba(255, 255, 255, .08);
   --hover-bg: rgba(255, 255, 255, .08);
   --borde: rgba(255, 255, 255, .14);
-  --glass-bg: rgba(30, 30, 40, .45);
-  --glass-borde: rgba(255, 255, 255, .12);
+  --glass-bg: rgba(40, 42, 60, .35);
+  --glass-borde: rgba(255, 255, 255, .16);
+  --glass-rim: rgba(255, 255, 255, .35);
 }
 
-/* Tintes sutiles de fondo solo para la familia Lila (lila / lavanda / tulipanes) */
-:root[data-color="lila"][data-tema="claro"] { --bg: #f6f2fb; }
-:root[data-color="lila"][data-tema="oscuro"] { --bg: #1a1522; }
+/*
+  Fondos decorativos (presets del selector "Fondo").
+  Sobrescriben el degradado por defecto que define base.css sobre <body>.
+*/
+body[data-fondo="lavanda"] {
+  background:
+    radial-gradient(1000px 700px at 15% 10%, #efe7ff 0%, transparent 60%),
+    linear-gradient(135deg, #efeaff 0%, #e3d9fb 45%, #cdb8f2 100%) !important;
+}
+:root[data-tema="oscuro"] body[data-fondo="lavanda"] {
+  background:
+    radial-gradient(1000px 700px at 15% 10%, #2a2140 0%, transparent 60%),
+    linear-gradient(135deg, #1c1730 0%, #241a3d 50%, #2e2150 100%) !important;
+}
 
-:root[data-color="lavanda"][data-tema="claro"] { --bg: #f5f1fb; }
-:root[data-color="lavanda"][data-tema="oscuro"] { --bg: #1b1826; }
-
-:root[data-color="tulipanes"][data-tema="claro"] { --bg: #fdf1f4; }
-:root[data-color="tulipanes"][data-tema="oscuro"] { --bg: #22151b; }
+body[data-fondo="tulipanes"] {
+  background:
+    radial-gradient(900px 600px at 85% 15%, #ffe0b8 0%, transparent 55%),
+    linear-gradient(135deg, #ffe3ec 0%, #ffc6d4 40%, #ff9fb0 70%, #ffbf9a 100%) !important;
+}
+:root[data-tema="oscuro"] body[data-fondo="tulipanes"] {
+  background:
+    radial-gradient(900px 600px at 85% 15%, #3a2230 0%, transparent 55%),
+    linear-gradient(135deg, #2a1620 0%, #3a1c2a 50%, #402032 100%) !important;
+}

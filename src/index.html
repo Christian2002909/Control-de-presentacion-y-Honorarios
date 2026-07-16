@@ -49,13 +49,6 @@
               <option value="lila">Lila</option>
             </select>
           </label>
-          <label id="cfg-variante-lila-fila" hidden>Variante de Lila
-            <select id="cfg-variante-lila">
-              <option value="lila">Lila</option>
-              <option value="lavanda">Lavanda</option>
-              <option value="tulipanes">Tulipanes</option>
-            </select>
-          </label>
           <label>Posición del panel
             <select id="cfg-posicion">
               <option value="arriba">Arriba</option>
@@ -66,12 +59,15 @@
           </label>
           <label>Fondo
             <select id="cfg-fondo-tipo">
-              <option value="color">Color solido</option>
+              <option value="degradado">Degradado (por defecto)</option>
+              <option value="lavanda">Lavanda</option>
+              <option value="tulipanes">Tulipanes</option>
+              <option value="color">Color sólido</option>
               <option value="imagen">Imagen</option>
             </select>
           </label>
-          <input type="color" id="cfg-fondo-color" />
-          <button id="btn-elegir-imagen" class="btn-secundario">Elegir imagen de fondo</button>
+          <input type="color" id="cfg-fondo-color" hidden />
+          <button id="btn-elegir-imagen" class="btn-secundario" hidden>Elegir imagen de fondo</button>
         </div>
 
         <div class="grupo glass">

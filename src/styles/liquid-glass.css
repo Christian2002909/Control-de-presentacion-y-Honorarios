@@ -1,61 +1,70 @@
 /*
-  Estética "Liquid Glass" ANIMADA (no estática), adaptada a CSS web siguiendo
-  los principios de .claude/skills/liquid-glass-design y swiftui-liquid-glass:
-  el vidrio pertenece a la capa de navegación/controles (paneles, tarjetas,
-  botones, modal), reacciona a la luz con reflejos especulares en MOVIMIENTO
-  y translucidez, en vez de sombras duras estáticas.
+  "Liquid Glass" estilo Apple, adaptado a CSS (Electron/Chromium).
+  Basado en los principios de Apple (SwiftUI): material muy translúcido que
+  desenfoca y refleja el contenido detrás, con brillo especular en los bordes
+  (rim de luz), esquinas continuas y una sombra flotante suave. El contenido
+  va POR ENCIMA del vidrio; el vidrio flota sobre el fondo.
 */
 
 .glass {
   position: relative;
-  /* Capa 1: reflejo de luz que se desplaza (sheen). Capa 2: tinte translúcido base. */
+  border-radius: 22px;
+  /* Tinte translúcido + un ligerísimo degradado vertical de luz */
   background-image:
-    linear-gradient(115deg,
-      rgba(255, 255, 255, 0) 38%,
-      rgba(255, 255, 255, .28) 50%,
-      rgba(255, 255, 255, 0) 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .02) 40%, transparent 75%),
     linear-gradient(0deg, var(--glass-bg), var(--glass-bg));
-  background-size: 220% 100%, auto;
   background-repeat: no-repeat;
-  background-position: -60% 0, 0 0;
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  /* Desenfoque real del contenido detrás (clave del efecto) */
+  backdrop-filter: blur(30px) saturate(180%) brightness(1.06);
+  -webkit-backdrop-filter: blur(30px) saturate(180%) brightness(1.06);
   border: 1px solid var(--glass-borde);
+  /* Rim especular (luz arriba-izquierda, sombra abajo-derecha) + sombra flotante */
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, .12),
-    inset 0 1px 0 rgba(255, 255, 255, .25);
-  border-radius: 1rem;
-  animation: glass-sheen 7s ease-in-out infinite;
+    inset 1.5px 1.5px 0 var(--glass-rim),
+    inset -1px -1px 1px rgba(255, 255, 255, .06),
+    inset 0 0 24px rgba(255, 255, 255, .05),
+    0 12px 40px rgba(0, 0, 0, .18);
 }
 
-/* El reflejo se desplaza de un lado a otro de forma continua ("líquido") */
+/* Reflejo de luz que se desplaza suavemente (vidrio "vivo", no estático) */
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(115deg,
+    transparent 40%,
+    rgba(255, 255, 255, .18) 50%,
+    transparent 60%);
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  background-position: -60% 0;
+  animation: glass-sheen 9s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
 @keyframes glass-sheen {
-  0%   { background-position: -60% 0, 0 0; }
-  50%  { background-position: 160% 0, 0 0; }
-  100% { background-position: -60% 0, 0 0; }
+  0%   { background-position: -60% 0; }
+  50%  { background-position: 160% 0; }
+  100% { background-position: -60% 0; }
 }
 
-/* Brillo especular flotante adicional para dar profundidad y sensación viva */
+/* Brillo especular flotante superior (highlight tipo lente) */
 .glass::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: radial-gradient(120% 80% at 20% 0%, rgba(255, 255, 255, .22), transparent 55%);
-  opacity: .7;
-  animation: glass-float 9s ease-in-out infinite;
-}
-
-@keyframes glass-float {
-  0%   { transform: translate(0, 0) scale(1);    opacity: .55; }
-  50%  { transform: translate(6%, 4%) scale(1.05); opacity: .8; }
-  100% { transform: translate(0, 0) scale(1);    opacity: .55; }
+  background: radial-gradient(130% 70% at 25% -5%, rgba(255, 255, 255, .25), transparent 55%);
+  opacity: .8;
 }
 
 /* El contenido debe quedar por encima de los reflejos */
 .glass > * { position: relative; z-index: 1; }
 
+/* Panel lateral: mismo material, sin redondeo en el borde pegado */
 #panel.glass {
   border-radius: 0;
   border-width: 0 1px 0 0;
@@ -64,40 +73,38 @@
 #app[data-posicion="arriba"] #panel.glass { border-width: 0 0 1px 0; }
 #app[data-posicion="abajo"] #panel.glass { border-width: 1px 0 0 0; }
 
-/* Botón primario: mantiene su degradado de acento y también un sheen en movimiento */
+/* Botón primario: vidrio teñido con el acento */
 .btn-primario.glass {
-  border: 1px solid rgba(255, 255, 255, .35);
+  border: 1px solid rgba(255, 255, 255, .4);
   background-image:
-    linear-gradient(115deg,
-      rgba(255, 255, 255, 0) 38%,
-      rgba(255, 255, 255, .35) 50%,
-      rgba(255, 255, 255, 0) 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, .28), transparent 60%),
     linear-gradient(135deg, var(--accent), var(--accent-2));
-  background-size: 220% 100%, auto;
+  color: #fff;
   transition: transform .15s ease, box-shadow .15s ease;
 }
 .btn-primario.glass:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .2);
+  box-shadow:
+    inset 1.5px 1.5px 0 rgba(255, 255, 255, .5),
+    0 8px 22px rgba(0, 0, 0, .25);
 }
 
-.tarjeta-tarea.glass { transition: transform .15s ease, box-shadow .15s ease; }
+.tarjeta-tarea.glass { transition: transform .18s ease, box-shadow .18s ease; }
 .tarjeta-tarea.glass:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   box-shadow:
-    0 12px 28px rgba(0, 0, 0, .16),
-    inset 0 1px 0 rgba(255, 255, 255, .3);
+    inset 1.5px 1.5px 0 var(--glass-rim),
+    0 18px 48px rgba(0, 0, 0, .22);
 }
 
 .modal-contenido.glass {
+  border-radius: 26px;
   box-shadow:
-    0 24px 60px rgba(0, 0, 0, .3),
-    inset 0 1px 0 rgba(255, 255, 255, .25);
+    inset 1.5px 1.5px 0 var(--glass-rim),
+    0 30px 70px rgba(0, 0, 0, .35);
 }
 
-/* Accesibilidad: si el usuario pide reducir movimiento, se detienen las animaciones */
+/* Accesibilidad: si el usuario pide reducir movimiento, se detiene el reflejo */
 @media (prefers-reduced-motion: reduce) {
-  .glass, .glass::after, .btn-primario.glass {
-    animation: none;
-  }
+  .glass::before { animation: none; }
 }

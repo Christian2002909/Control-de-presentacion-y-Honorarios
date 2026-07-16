@@ -24,16 +24,8 @@ async function aplicarTema() {
   document.documentElement.setAttribute('data-tema', tema);
 }
 
-function colorAplicado() {
-  // Lavanda y Tulipanes solo existen como variantes de Lila.
-  if (config.colorPrograma === 'lila') {
-    return config.varianteLila || 'lila';
-  }
-  return config.colorPrograma;
-}
-
 function aplicarColor() {
-  document.documentElement.setAttribute('data-color', colorAplicado());
+  document.documentElement.setAttribute('data-color', config.colorPrograma);
 }
 
 function aplicarPosicionPanel() {
@@ -42,15 +34,33 @@ function aplicarPosicionPanel() {
 
 function aplicarFondo() {
   const body = document.body;
-  if (config.fondo.tipo === 'imagen' && config.fondo.valor) {
-    body.style.backgroundImage = `url("file://${config.fondo.valor.replace(/\\/g, '/')}")`;
+  const { tipo, valor } = config.fondo || { tipo: 'degradado', valor: '' };
+
+  // Limpiar cualquier estilo/atributo previo
+  body.style.background = '';
+  body.style.backgroundImage = '';
+  body.style.backgroundColor = '';
+  delete body.dataset.fondo;
+
+  if (tipo === 'lavanda' || tipo === 'tulipanes') {
+    // El degradado decorativo lo define themes.css según data-fondo
+    body.dataset.fondo = tipo;
+  } else if (tipo === 'color') {
+    body.style.background = valor || '';
+  } else if (tipo === 'imagen' && valor) {
+    body.style.backgroundImage = `url("file://${valor.replace(/\\/g, '/')}")`;
     body.style.backgroundSize = 'cover';
     body.style.backgroundPosition = 'center';
-    body.style.backgroundColor = '';
-  } else {
-    body.style.backgroundImage = 'none';
-    body.style.backgroundColor = config.fondo.valor || '';
+    body.style.backgroundAttachment = 'fixed';
   }
+  // tipo 'degradado' => sin overrides => usa el degradado por defecto de base.css
+}
+
+// Muestra el selector de color solo para "Color sólido" y el botón de imagen solo para "Imagen".
+function actualizarControlesFondo() {
+  const tipo = document.getElementById('cfg-fondo-tipo').value;
+  document.getElementById('cfg-fondo-color').hidden = tipo !== 'color';
+  document.getElementById('btn-elegir-imagen').hidden = tipo !== 'imagen';
 }
 
 function aplicarConfigVisual() {
@@ -201,19 +211,13 @@ async function guardarTareaDesdeModal() {
 
 // ---------- Configuración ----------
 
-function actualizarVisibilidadVariante() {
-  const esLila = document.getElementById('cfg-color').value === 'lila';
-  document.getElementById('cfg-variante-lila-fila').hidden = !esLila;
-}
-
 function cargarFormularioConfig() {
   document.getElementById('cfg-tema').value = config.tema;
   document.getElementById('cfg-color').value = config.colorPrograma;
-  document.getElementById('cfg-variante-lila').value = config.varianteLila || 'lila';
-  actualizarVisibilidadVariante();
   document.getElementById('cfg-posicion').value = config.posicionPanel;
   document.getElementById('cfg-fondo-tipo').value = config.fondo.tipo;
   document.getElementById('cfg-fondo-color').value = config.fondo.tipo === 'color' && config.fondo.valor ? config.fondo.valor : '#ffffff';
+  actualizarControlesFondo();
 
   document.getElementById('cfg-email-direccion').value = config.email.direccion;
   document.getElementById('cfg-email-password').value = config.email.appPassword;
@@ -235,7 +239,6 @@ async function guardarConfigDesdeFormulario() {
   const nuevaConfig = {
     tema: document.getElementById('cfg-tema').value,
     colorPrograma: document.getElementById('cfg-color').value,
-    varianteLila: document.getElementById('cfg-variante-lila').value,
     posicionPanel: document.getElementById('cfg-posicion').value,
     fondo: {
       tipo: document.getElementById('cfg-fondo-tipo').value,
@@ -325,15 +328,19 @@ async function init() {
   // Vista previa en vivo del fondo
   document.getElementById('cfg-fondo-color').addEventListener('input', (e) => {
     config.fondo = { tipo: 'color', valor: e.target.value };
-    document.getElementById('cfg-fondo-tipo').value = 'color';
     aplicarFondo();
   });
   document.getElementById('cfg-fondo-tipo').addEventListener('change', (e) => {
-    if (e.target.value === 'color') {
-      config.fondo = { tipo: 'color', valor: document.getElementById('cfg-fondo-color').value };
+    const tipo = e.target.value;
+    if (tipo === 'color') {
+      config.fondo = { tipo, valor: document.getElementById('cfg-fondo-color').value };
+    } else if (tipo === 'imagen') {
+      config.fondo = { tipo, valor: config.fondo.valor || '' };
     } else {
-      config.fondo = { tipo: 'imagen', valor: config.fondo.valor };
+      // degradado, lavanda, tulipanes
+      config.fondo = { tipo, valor: '' };
     }
+    actualizarControlesFondo();
     aplicarFondo();
   });
 
@@ -346,16 +353,10 @@ async function init() {
     config.colorPrograma = e.target.value;
     aplicarColor();
   });
-  document.getElementById('cfg-variante-lila').addEventListener('change', (e) => {
-    config.varianteLila = e.target.value;
-    aplicarColor();
-  });
   document.getElementById('cfg-posicion').addEventListener('change', (e) => {
     config.posicionPanel = e.target.value;
     aplicarPosicionPanel();
   });
-
-  document.getElementById('cfg-color').addEventListener('change', actualizarVisibilidadVariante);
 
   document.getElementById('btn-guardar-config').addEventListener('click', guardarConfigDesdeFormulario);
 
