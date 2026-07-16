@@ -31,6 +31,7 @@
     <nav id="panel" class="glass">
       <div class="logo">🗓️ Agenda Personal</div>
       <button class="nav-btn" data-view="agenda">Tareas</button>
+      <button class="nav-btn" data-view="historial">Historial</button>
       <button class="nav-btn" data-view="config">Configuración</button>
     </nav>
 
@@ -40,7 +41,16 @@
           <h1>Mis tareas</h1>
           <button id="btn-nueva-tarea" class="btn-primario glass">+ Nueva tarea</button>
         </header>
+        <p class="ayuda-arrastrar">Arrastra las tarjetas para reordenarlas.</p>
         <div id="lista-tareas" class="lista-tareas"></div>
+      </section>
+
+      <section id="vista-historial" class="vista" hidden>
+        <header class="encabezado">
+          <h1>Historial</h1>
+        </header>
+        <p class="ayuda-arrastrar">Tareas completadas o eliminadas. Puedes reabrirlas o borrarlas para siempre.</p>
+        <div id="lista-historial" class="lista-tareas"></div>
       </section>
 
       <section id="vista-config" class="vista" hidden>

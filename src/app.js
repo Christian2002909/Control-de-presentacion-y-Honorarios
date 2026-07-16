@@ -80,50 +80,181 @@ function cambiarVista(vista) {
   document.querySelectorAll('.vista').forEach((v) => v.setAttribute('hidden', ''));
   document.getElementById(`vista-${vista}`).removeAttribute('hidden');
   document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('activo', b.dataset.view === vista));
+  if (vista === 'historial') renderHistorial();
 }
 
 // ---------- Render de tareas ----------
 
+function tareasActivas() {
+  return tareas
+    .filter((t) => !t.completada && !t.eliminada)
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || a.fechaLimite.localeCompare(b.fechaLimite));
+}
+
+function proximoOrden() {
+  const ords = tareas.map((t) => t.orden ?? 0);
+  return ords.length ? Math.max(...ords) + 1 : 0;
+}
+
+function crearTarjeta(tarea, modo) {
+  const restantes = diasRestantes(tarea.fechaLimite);
+  const card = document.createElement('div');
+  card.className = 'tarjeta-tarea glass' + (tarea.completada ? ' completada' : '');
+  card.dataset.id = tarea.id;
+
+  let badge;
+  if (modo === 'historial') {
+    badge = tarea.eliminada
+      ? '<span class="badge vencida">Eliminada</span>'
+      : '<span class="badge">Completada</span>';
+  } else {
+    badge = `<span class="badge ${restantes < 0 ? 'vencida' : restantes <= 1 ? 'urgente' : ''}">${restantes < 0 ? 'Vencida' : restantes === 0 ? 'Hoy' : `${restantes} día(s)`}</span>`;
+  }
+
+  const acciones = modo === 'historial'
+    ? `<button class="btn-secundario btn-reabrir">Reabrir</button>
+       <button class="btn-peligro btn-borrar-def">Eliminar definitivamente</button>`
+    : `<button class="btn-secundario btn-completar">Completar</button>
+       <button class="btn-secundario btn-editar">Editar</button>
+       <button class="btn-peligro btn-eliminar">Eliminar</button>`;
+
+  card.innerHTML = `
+    <div class="tarjeta-cabecera">
+      <h3>${escaparHtml(tarea.titulo)}</h3>
+      ${badge}
+    </div>
+    <p class="tarjeta-fecha">Último día: ${tarea.fechaLimite}</p>
+    ${tarea.notas ? `<p class="tarjeta-notas">${escaparHtml(tarea.notas)}</p>` : ''}
+    <div class="tarjeta-chips">
+      ${(tarea.avisosPrevios || []).map((d) => `<span class="chip">${d}d antes</span>`).join('')}
+      ${(tarea.horarios || []).map((h) => `<span class="chip">${h}</span>`).join('')}
+    </div>
+    <div class="tarjeta-acciones">${acciones}</div>
+  `;
+
+  if (modo === 'historial') {
+    card.querySelector('.btn-reabrir').addEventListener('click', async () => {
+      tarea.completada = false;
+      tarea.eliminada = false;
+      tarea.orden = proximoOrden();
+      tareas = await AgendaStore.guardarTarea(tarea);
+      renderTareas();
+      renderHistorial();
+    });
+    card.querySelector('.btn-borrar-def').addEventListener('click', async () => {
+      if (confirm('¿Eliminar esta tarea para siempre? No se podrá recuperar.')) {
+        tareas = await AgendaStore.eliminarTarea(tarea.id);
+        renderHistorial();
+      }
+    });
+  } else {
+    card.setAttribute('draggable', 'true');
+    card.querySelector('.btn-editar').addEventListener('click', () => abrirModal(tarea));
+    card.querySelector('.btn-completar').addEventListener('click', async () => {
+      tarea.completada = true;
+      tarea.completadaEn = new Date().toISOString();
+      tareas = await AgendaStore.guardarTarea(tarea);
+      renderTareas();
+    });
+    card.querySelector('.btn-eliminar').addEventListener('click', async () => {
+      tarea.eliminada = true;
+      tarea.eliminadaEn = new Date().toISOString();
+      tareas = await AgendaStore.guardarTarea(tarea);
+      renderTareas();
+    });
+  }
+
+  return card;
+}
+
 function renderTareas() {
   const contenedor = document.getElementById('lista-tareas');
   contenedor.innerHTML = '';
+  const activas = tareasActivas();
 
-  if (!tareas.length) {
+  if (!activas.length) {
     contenedor.innerHTML = '<p class="vacio">No tienes tareas pendientes. Crea una con "+ Nueva tarea".</p>';
     return;
   }
 
-  const ordenadas = [...tareas].sort((a, b) => a.fechaLimite.localeCompare(b.fechaLimite));
+  for (const tarea of activas) contenedor.appendChild(crearTarjeta(tarea, 'activa'));
+  habilitarArrastre(contenedor);
+}
 
-  for (const tarea of ordenadas) {
-    const restantes = diasRestantes(tarea.fechaLimite);
-    const card = document.createElement('div');
-    card.className = 'tarjeta-tarea glass' + (tarea.completada ? ' completada' : '');
-    card.innerHTML = `
-      <div class="tarjeta-cabecera">
-        <h3>${escaparHtml(tarea.titulo)}</h3>
-        <span class="badge ${restantes < 0 ? 'vencida' : restantes <= 1 ? 'urgente' : ''}">
-          ${restantes < 0 ? 'Vencida' : restantes === 0 ? 'Hoy' : `${restantes} día(s)`}
-        </span>
-      </div>
-      <p class="tarjeta-fecha">Último día: ${tarea.fechaLimite}</p>
-      ${tarea.notas ? `<p class="tarjeta-notas">${escaparHtml(tarea.notas)}</p>` : ''}
-      <div class="tarjeta-chips">
-        ${(tarea.avisosPrevios || []).map((d) => `<span class="chip">${d}d antes</span>`).join('')}
-        ${(tarea.horarios || []).map((h) => `<span class="chip">${h}</span>`).join('')}
-      </div>
-      <div class="tarjeta-acciones">
-        <button class="btn-secundario btn-completar">${tarea.completada ? 'Reabrir' : 'Completar'}</button>
-        <button class="btn-secundario btn-editar">Editar</button>
-      </div>
-    `;
-    card.querySelector('.btn-editar').addEventListener('click', () => abrirModal(tarea));
-    card.querySelector('.btn-completar').addEventListener('click', async () => {
-      tarea.completada = !tarea.completada;
-      tareas = await AgendaStore.guardarTarea(tarea);
-      renderTareas();
+function renderHistorial() {
+  const contenedor = document.getElementById('lista-historial');
+  if (!contenedor) return;
+  contenedor.innerHTML = '';
+  const hist = tareas
+    .filter((t) => t.completada || t.eliminada)
+    .sort((a, b) => (b.completadaEn || b.eliminadaEn || '').localeCompare(a.completadaEn || a.eliminadaEn || ''));
+
+  if (!hist.length) {
+    contenedor.innerHTML = '<p class="vacio">Aún no hay nada en el historial.</p>';
+    return;
+  }
+  for (const tarea of hist) contenedor.appendChild(crearTarjeta(tarea, 'historial'));
+}
+
+// ---------- Arrastrar para reordenar ----------
+
+let tarjetaArrastrada = null;
+
+function habilitarArrastre(contenedor) {
+  contenedor.querySelectorAll('.tarjeta-tarea').forEach((card) => {
+    card.addEventListener('dragstart', () => {
+      tarjetaArrastrada = card;
+      setTimeout(() => card.classList.add('arrastrando'), 0);
     });
-    contenedor.appendChild(card);
+    card.addEventListener('dragend', async () => {
+      card.classList.remove('arrastrando');
+      tarjetaArrastrada = null;
+      await guardarOrdenActual(contenedor);
+    });
+  });
+
+  contenedor.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    if (!tarjetaArrastrada) return;
+    const ref = elementoDestino(contenedor, e.clientX, e.clientY);
+    if (ref == null) {
+      if (contenedor.lastElementChild !== tarjetaArrastrada) contenedor.appendChild(tarjetaArrastrada);
+    } else if (ref !== tarjetaArrastrada && ref.previousElementSibling !== tarjetaArrastrada) {
+      contenedor.insertBefore(tarjetaArrastrada, ref);
+    }
+  });
+}
+
+function elementoDestino(contenedor, x, y) {
+  const cards = [...contenedor.querySelectorAll('.tarjeta-tarea:not(.arrastrando)')];
+  let mejor = null;
+  let mejorDist = Infinity;
+  for (const c of cards) {
+    const r = c.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const dist = Math.hypot(x - cx, y - cy);
+    if (dist < mejorDist) { mejorDist = dist; mejor = c; }
+  }
+  if (!mejor) return null;
+  const r = mejor.getBoundingClientRect();
+  const cx = r.left + r.width / 2;
+  const cy = r.top + r.height / 2;
+  const antes = (y < cy) || (Math.abs(y - cy) <= r.height / 2 && x < cx);
+  return antes ? mejor : mejor.nextElementSibling;
+}
+
+async function guardarOrdenActual(contenedor) {
+  const ids = [...contenedor.querySelectorAll('.tarjeta-tarea')].map((c) => c.dataset.id);
+  let cambio = false;
+  ids.forEach((id, i) => {
+    const t = tareas.find((t) => t.id === id);
+    if (t && t.orden !== i) { t.orden = i; cambio = true; }
+  });
+  if (!cambio) return;
+  for (const id of ids) {
+    const t = tareas.find((t) => t.id === id);
+    if (t) tareas = await AgendaStore.guardarTarea(t);
   }
 }
 
@@ -201,6 +332,8 @@ async function guardarTareaDesdeModal() {
     avisosPrevios: [...diasAvisoTemp],
     horarios: [...horariosTemp],
     completada: existente ? existente.completada : false,
+    eliminada: existente ? existente.eliminada : false,
+    orden: existente && existente.orden != null ? existente.orden : proximoOrden(),
     creadaEn: existente ? existente.creadaEn : new Date().toISOString()
   };
 
