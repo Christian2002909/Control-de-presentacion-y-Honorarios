@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, nativeTheme, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, nativeTheme, nativeImage, dialog } = require('electron');
 const path = require('path');
 const nodemailer = require('nodemailer');
 
@@ -36,14 +36,21 @@ function crearVentana() {
 }
 
 function crearBandeja() {
-  tray = new Tray(path.join(__dirname, '..', 'assets', 'icon.png'));
-  const menu = Menu.buildFromTemplate([
-    { label: 'Abrir Agenda Personal', click: () => mainWindow && mainWindow.show() },
-    { label: 'Salir', click: () => { saliendo = true; app.quit(); } }
-  ]);
-  tray.setToolTip('Agenda Personal');
-  tray.setContextMenu(menu);
-  tray.on('click', () => mainWindow && mainWindow.show());
+  try {
+    const iconoPath = path.join(__dirname, '..', 'assets', 'icon.png');
+    const imagen = nativeImage.createFromPath(iconoPath);
+    tray = new Tray(imagen.isEmpty() ? nativeImage.createEmpty() : imagen);
+    const menu = Menu.buildFromTemplate([
+      { label: 'Abrir Agenda Personal', click: () => mainWindow && mainWindow.show() },
+      { label: 'Salir', click: () => { saliendo = true; app.quit(); } }
+    ]);
+    tray.setToolTip('Agenda Personal');
+    tray.setContextMenu(menu);
+    tray.on('click', () => mainWindow && mainWindow.show());
+  } catch (err) {
+    // La bandeja es opcional: si falla (icono faltante, etc.) la app sigue funcionando.
+    console.error('No se pudo crear el icono de bandeja:', err.message);
+  }
 }
 
 function enviarEmail(config, tarea, dias) {
@@ -130,9 +137,9 @@ function registrarIpc() {
 }
 
 app.whenReady().then(() => {
+  registrarIpc();   // Primero los manejadores IPC, para que el renderer nunca se quede sin ellos.
   crearVentana();
   crearBandeja();
-  registrarIpc();
   iniciarScheduler();
 
   app.on('activate', () => {
