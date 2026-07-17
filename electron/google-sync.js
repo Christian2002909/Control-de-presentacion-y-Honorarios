@@ -80,14 +80,39 @@ async function crearOActualizarEvento(config, tarea) {
   const auth = crearCliente(config);
   const calendar = google.calendar({ version: 'v3', auth });
 
+  const horarios = [...(tarea.horarios || [])].sort();
+  const zonaHoraria = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  // Con una hora definida, el evento dispara el aviso en el momento exacto
+  // (Google Calendar no siempre muestra una alerta puntual en eventos "todo el día").
+  const horarioBase = horarios[0];
+  const usaHora = Boolean(horarioBase);
+  let horarioFin = horarioBase;
+  if (usaHora) {
+    const [h, m] = horarioBase.split(':').map(Number);
+    const fin = new Date(2000, 0, 1, h, m + 30); // +30 minutos de duración
+    horarioFin = `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`;
+  }
+
   const evento = {
     summary: tarea.titulo,
-    description: tarea.notas || '',
-    start: { date: tarea.fechaLimite },
-    end: { date: tarea.fechaLimite },
+    description: [
+      tarea.notas || '',
+      horarios.length > 1 ? `\n\nOtros horarios de aviso en Agenda Personal: ${horarios.slice(1).join(', ')}` : ''
+    ].join(''),
+    ...(usaHora
+      ? {
+          start: { dateTime: `${tarea.fechaLimite}T${horarioBase}:00`, timeZone: zonaHoraria },
+          end: { dateTime: `${tarea.fechaLimite}T${horarioFin}:00`, timeZone: zonaHoraria }
+        }
+      : {
+          start: { date: tarea.fechaLimite },
+          end: { date: tarea.fechaLimite }
+        }),
     reminders: {
       useDefault: false,
-      overrides: (tarea.avisosPrevios || []).map((d) => ({ method: 'popup', minutes: d * 24 * 60 }))
+      overrides: (tarea.avisosPrevios && tarea.avisosPrevios.length ? tarea.avisosPrevios : [0])
+        .map((d) => ({ method: 'popup', minutes: d * 24 * 60 }))
     }
   };
 

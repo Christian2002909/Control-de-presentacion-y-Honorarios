@@ -326,6 +326,7 @@ async function guardarTareaDesdeModal() {
   const existente = tareas.find((t) => t.id === idExistente);
 
   const tarea = {
+    ...existente, // conserva googleEventId y otros campos internos para no duplicar eventos
     id: idExistente || generarId(),
     titulo,
     fechaLimite,
