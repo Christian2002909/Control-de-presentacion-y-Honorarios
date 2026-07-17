@@ -183,12 +183,25 @@ function dispararAviso(aviso) {
 }
 
 function iniciarScheduler() {
-  setInterval(() => {
+  const revisar = () => {
     const tareas = store.getTareas();
     const ultimosAvisos = store.getUltimosAvisos();
     const pendientes = calcularAvisosPendientes(tareas, ultimosAvisos);
-    pendientes.forEach(dispararAviso);
-  }, 30 * 1000);
+
+    const activas = tareas.filter((t) => !t.completada && !t.eliminada);
+    console.log(
+      `[scheduler] ${new Date().toLocaleString()} — tareas activas: ` +
+      activas.map((t) => `"${t.titulo}" (${t.fechaLimite} ${JSON.stringify(t.horarios)})`).join(', ') +
+      ` — pendientes encontrados: ${pendientes.length}`
+    );
+
+    pendientes.forEach((p) => {
+      console.log(`[scheduler] Disparando aviso: "${p.tarea.titulo}" (clave=${p.clave})`);
+      dispararAviso(p);
+    });
+  };
+  revisar();
+  setInterval(revisar, 30 * 1000);
 }
 
 function registrarIpc() {
