@@ -11,8 +11,26 @@ function crearCliente(config) {
   return oAuth2Client;
 }
 
+// Solo puede haber un servidor de callback OAuth escuchando a la vez.
+let servidorActivo = null;
+
+function cerrarServidorActivo() {
+  return new Promise((resolve) => {
+    if (servidorActivo) {
+      servidorActivo.close(() => resolve());
+      servidorActivo = null;
+    } else {
+      resolve();
+    }
+  });
+}
+
 // Abre el navegador para el consentimiento OAuth y devuelve los tokens obtenidos.
-function autenticar(config) {
+async function autenticar(config) {
+  // Si quedó un intento anterior sin terminar (pestaña cerrada, doble clic, etc.),
+  // lo cerramos primero para no chocar contra el mismo puerto (EADDRINUSE).
+  await cerrarServidorActivo();
+
   return new Promise((resolve, reject) => {
     const oAuth2Client = crearCliente(config);
     const authUrl = oAuth2Client.generateAuthUrl({
@@ -28,15 +46,29 @@ function autenticar(config) {
         if (!code) return;
         res.end('Autenticacion completa. Ya puedes cerrar esta pestana y volver a la app.');
         server.close();
+        servidorActivo = null;
         const { tokens } = await oAuth2Client.getToken(code);
         resolve(tokens);
       } catch (err) {
         res.end('Error de autenticacion: ' + err.message);
         server.close();
+        servidorActivo = null;
         reject(err);
       }
     });
 
+    // Si el puerto ya está ocupado por algo externo, no debe tumbar la app:
+    // se rechaza la promesa con un mensaje claro en vez de lanzar una excepción sin capturar.
+    server.on('error', (err) => {
+      servidorActivo = null;
+      if (err.code === 'EADDRINUSE') {
+        reject(new Error('El puerto 53682 ya está en uso por otro programa. Cierra otras copias de Agenda Personal e inténtalo de nuevo.'));
+      } else {
+        reject(err);
+      }
+    });
+
+    servidorActivo = server;
     server.listen(53682, () => {
       shell.openExternal(authUrl);
     });
