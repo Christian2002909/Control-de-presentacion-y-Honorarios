@@ -195,6 +195,14 @@ input, select, textarea {
   font-size: .9rem;
 }
 
+/* El desplegable de un <select> lo pinta el sistema con fondo blanco fijo
+   (no hereda nuestro tema), así que las opciones se fuerzan a texto oscuro
+   sobre fondo blanco para que siempre se lean, en cualquier tema. */
+select option {
+  color: #1d1d24;
+  background: #ffffff;
+}
+
 .estado { font-size: .8rem; margin-left: .5rem; opacity: .8; }
 
 .modal {
