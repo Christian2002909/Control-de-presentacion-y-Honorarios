@@ -11,7 +11,11 @@ const defaultConfig = {
   icloudReminders: { appleId: '', appPassword: '', activo: false },
   // Canales de aviso: cada uno se puede prender/apagar sin afectar a los demás,
   // aunque Google/iCloud ya estén conectados.
-  notificaciones: { ventana: true, correo: true }
+  notificaciones: { ventana: true, correo: true },
+  // Corrección manual (en minutos) por si el reloj interno de Electron calcula mal
+  // la zona horaria del sistema (bug conocido en algunos países/versiones). Ej: 60
+  // si los avisos llegan 1 hora tarde.
+  correccionHorariaMin: 0
 };
 
 const store = new Store({

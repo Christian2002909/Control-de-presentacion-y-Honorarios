@@ -357,6 +357,7 @@ function cargarFormularioConfig() {
 
   document.getElementById('cfg-notif-ventana').checked = config.notificaciones ? !!config.notificaciones.ventana : true;
   document.getElementById('cfg-notif-correo').checked = config.notificaciones ? !!config.notificaciones.correo : true;
+  document.getElementById('cfg-correccion-horaria').value = config.correccionHorariaMin || 0;
 
   document.getElementById('cfg-email-direccion').value = config.email.direccion;
   document.getElementById('cfg-email-password').value = config.email.appPassword;
@@ -393,6 +394,7 @@ async function guardarConfigDesdeFormulario(silencioso = false) {
       smtpPort: Number(document.getElementById('cfg-email-puerto').value) || 465
     },
     iniciarConWindows: document.getElementById('cfg-autostart').checked,
+    correccionHorariaMin: Number(document.getElementById('cfg-correccion-horaria').value) || 0,
     notificaciones: {
       ventana: document.getElementById('cfg-notif-ventana').checked,
       correo: document.getElementById('cfg-notif-correo').checked
