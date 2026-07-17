@@ -186,11 +186,17 @@ function iniciarScheduler() {
   const revisar = () => {
     const tareas = store.getTareas();
     const ultimosAvisos = store.getUltimosAvisos();
-    const pendientes = calcularAvisosPendientes(tareas, ultimosAvisos);
+    const config = store.getConfig();
+
+    // Corrección manual por si el reloj interno de Electron calcula mal la zona horaria.
+    const correccionMs = (config.correccionHorariaMin || 0) * 60 * 1000;
+    const ahora = new Date(Date.now() + correccionMs);
+
+    const pendientes = calcularAvisosPendientes(tareas, ultimosAvisos, ahora);
 
     const activas = tareas.filter((t) => !t.completada && !t.eliminada);
     console.log(
-      `[scheduler] ${new Date().toLocaleString()} — tareas activas: ` +
+      `[scheduler] ${ahora.toLocaleString()} (corrección: ${config.correccionHorariaMin || 0} min) — tareas activas: ` +
       activas.map((t) => `"${t.titulo}" (${t.fechaLimite} ${JSON.stringify(t.horarios)})`).join(', ') +
       ` — pendientes encontrados: ${pendientes.length}`
     );
